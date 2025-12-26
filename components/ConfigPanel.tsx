@@ -1,39 +1,28 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-
-const STORAGE_KEY = 'whatsapp-simulator-config';
-
-type SimulatorConfig = {
-  webhookUrl: string;
-  phoneNumber: string;
-  contactName: string;
-};
+import { useEffect, useState } from "react";
+import { saveConfig, loadConfig } from "@/lib/storage";
 
 export default function ConfigPanel() {
-  const [webhookUrl, setWebhookUrl] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('5491131264254');
-  const [contactName, setContactName] = useState('Test User');
+  const cfg = loadConfig();
+  const [webhookUrl, setWebhookUrl] = useState(cfg?.webhookUrl ?? "");
+  const [phone, setPhone] = useState(cfg?.phone ?? "5491131264254");
+  const [name, setName] = useState(cfg?.name ?? "Test User");
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const savedConfig = localStorage.getItem(STORAGE_KEY);
-    if (!savedConfig) return;
-
-    try {
-      const config = JSON.parse(savedConfig) as Partial<SimulatorConfig>;
-      setWebhookUrl(config.webhookUrl ?? '');
-      setPhoneNumber(config.phoneNumber ?? '5491131264254');
-      setContactName(config.contactName ?? 'Test User');
-    } catch {
-      // ignore invalid localStorage value
-    }
+    const onUpdated = () => {
+      const c = loadConfig();
+      setWebhookUrl(c?.webhookUrl ?? "");
+      setPhone(c?.phone ?? "5491131264254");
+      setName(c?.name ?? "Test User");
+    };
+    window.addEventListener("whatsapp-config-updated", onUpdated);
+    return () => window.removeEventListener("whatsapp-config-updated", onUpdated);
   }, []);
 
-  const saveConfig = () => {
-    const config: SimulatorConfig = { webhookUrl, phoneNumber, contactName };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-    window.dispatchEvent(new Event('whatsapp-simulator-config-updated'));
+  const save = () => {
+    saveConfig({ webhookUrl: webhookUrl.trim(), phone: phone.trim(), name: name.trim() });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -45,12 +34,12 @@ export default function ConfigPanel() {
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">Configuración</h2>
         <div
-          className={[
-            'rounded-full px-2 py-1 text-xs font-medium',
-            isWebhookConfigured ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600',
-          ].join(' ')}
+          className={
+            "rounded-full px-2 py-1 text-xs font-medium " +
+            (isWebhookConfigured ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600")
+          }
         >
-          {isWebhookConfigured ? 'Webhook configurado' : 'Webhook no configurado'}
+          {isWebhookConfigured ? "✓ Configuración guardada" : "Webhook no configurado"}
         </div>
       </div>
 
@@ -61,40 +50,37 @@ export default function ConfigPanel() {
             type="text"
             value={webhookUrl}
             onChange={(e) => setWebhookUrl(e.target.value)}
-            placeholder="https://tu-instancia.app.n8n.cloud/webhook/360dialog-in"
+            placeholder="https://tu-instancia.app.n8n.cloud/webhook/..."
             className="w-full rounded border p-2"
           />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-sm font-medium">Número (from)</label>
+            <label className="mb-1 block text-sm font-medium">Tu número de teléfono</label>
             <input
               type="text"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
               placeholder="5491131264254"
               className="w-full rounded border p-2"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium">Nombre del contacto</label>
+            <label className="mb-1 block text-sm font-medium">Tu nombre</label>
             <input
               type="text"
-              value={contactName}
-              onChange={(e) => setContactName(e.target.value)}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               placeholder="Test User"
               className="w-full rounded border p-2"
             />
           </div>
         </div>
 
-        <button
-          onClick={saveConfig}
-          className="w-full rounded bg-green-600 p-2 font-medium text-white hover:bg-green-700"
-        >
-          {saved ? 'Guardado' : 'Guardar configuración'}
+        <button onClick={save} className="w-full rounded bg-green-600 p-2 font-medium text-white hover:bg-green-700">
+          {saved ? "Guardado ✓" : "Guardar configuración"}
         </button>
       </div>
     </div>
