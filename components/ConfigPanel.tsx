@@ -4,13 +4,20 @@ import { useEffect, useState } from "react";
 import { saveConfig, loadConfig } from "@/lib/storage";
 
 export default function ConfigPanel() {
-  const cfg = loadConfig();
-  const [webhookUrl, setWebhookUrl] = useState(cfg?.webhookUrl ?? "");
-  const [phone, setPhone] = useState(cfg?.phone ?? "5491131264254");
-  const [name, setName] = useState(cfg?.name ?? "Test User");
+  const [mounted, setMounted] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [phone, setPhone] = useState("");
+  const [name, setName] = useState("");
   const [saved, setSaved] = useState(false);
 
+  // Cargar config al montar (lado cliente)
   useEffect(() => {
+    const cfg = loadConfig();
+    setWebhookUrl(cfg?.webhookUrl ?? "");
+    setPhone(cfg?.phone ?? "5491131264254");
+    setName(cfg?.name ?? "Test User");
+    setMounted(true);
+
     const onUpdated = () => {
       const c = loadConfig();
       setWebhookUrl(c?.webhookUrl ?? "");
@@ -28,6 +35,20 @@ export default function ConfigPanel() {
   };
 
   const isWebhookConfigured = Boolean(webhookUrl.trim());
+
+  // No renderizar hasta que esté montado en cliente (evita hydration mismatch)
+  if (!mounted) {
+    return (
+      <div className="rounded-lg border bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">Configuración</h2>
+          <div className="rounded-full px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600">
+            Cargando...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-lg border bg-white p-4 shadow-sm">

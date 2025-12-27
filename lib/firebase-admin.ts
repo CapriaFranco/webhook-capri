@@ -20,7 +20,7 @@ export function getAdminDatabase() {
 
     initializeApp({
       credential: cert(serviceAccount),
-      databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`,
+      databaseURL: `https://${serviceAccount.project_id}-default-rtdb.firebaseio.com`,
     });
   }
 
