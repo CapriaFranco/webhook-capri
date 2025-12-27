@@ -2,71 +2,28 @@
 
 import { useState } from 'react';
 
-type UserResult = {
+type TestResult = {
   phone: string;
-  status: 'success' | 'error';
+  userName: string;
   message: string;
+  status: 'pending' | 'sent' | 'success' | 'error';
+  response: string;
+  timestamp: string;
+  waitTime?: number; // ms que tardó la petición al webhook
 };
 
 export default function StressTestPanel() {
   const [numUsers, setNumUsers] = useState(100);
   const [messagesPerUser, setMessagesPerUser] = useState(1);
+  const [webhookUrl, setWebhookUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<{
-    status: 'success' | 'error';
-    message: string;
-    totalMessages: number;
-    users: UserResult[];
+  const [results, setResults] = useState<TestResult[]>([]);
+  const [summary, setSummary] = useState<{
+    total: number;
+    success: number;
+    error: number;
     duration: number;
   } | null>(null);
-
-  const handleRunTest = async () => {
-    setIsLoading(true);
-    setResult(null);
-
-    try {
-      const startTime = Date.now();
-      const response = await fetch('/api/stress-test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          numUsers: Number(numUsers),
-          messagesPerUser: Number(messagesPerUser),
-        }),
-      });
-
-      const data = await response.json();
-      const duration = Date.now() - startTime;
-
-      if (response.ok) {
-        setResult({
-          status: 'success',
-          message: `✅ ${data.totalMessages} mensajes creados exitosamente`,
-          totalMessages: data.totalMessages,
-          users: data.users || [],
-          duration,
-        });
-      } else {
-        setResult({
-          status: 'error',
-          message: `❌ Error: ${data.error}`,
-          totalMessages: 0,
-          users: [],
-          duration,
-        });
-      }
-    } catch (err) {
-      setResult({
-        status: 'error',
-        message: `❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`,
-        totalMessages: 0,
-        users: [],
-        duration: Date.now(),
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleNumUsersChange = (value: string) => {
     const num = parseInt(value, 10);
@@ -82,15 +39,79 @@ export default function StressTestPanel() {
     }
   };
 
+  const handleRunTest = async () => {
+    if (!webhookUrl.trim()) {
+      alert('⚠️ Debes ingresar la URL del webhook de n8n');
+      return;
+    }
+
+    setIsLoading(true);
+    setResults([]);
+    setSummary(null);
+
+    try {
+      const startTime = Date.now();
+      const response = await fetch('/api/stress-test-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          numUsers: Number(numUsers),
+          messagesPerUser: Number(messagesPerUser),
+          webhookUrl: webhookUrl.trim(),
+        }),
+      });
+
+      const data = await response.json();
+      const duration = Date.now() - startTime;
+
+      if (response.ok) {
+        setResults(data.results || []);
+        setSummary({
+          total: data.totalSent,
+          success: data.successCount,
+          error: data.errorCount,
+          duration,
+        });
+      } else {
+        alert(`❌ Error: ${data.error}`);
+      }
+    } catch (err) {
+      alert(`❌ Error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const totalMessages = numUsers * messagesPerUser;
-  const successUsers = result?.users.filter((u) => u.status === 'success').length || 0;
-  const errorUsers = result?.users.filter((u) => u.status === 'error').length || 0;
+  const successResults = results.filter((r) => r.status === 'success').length;
+  const errorResults = results.filter((r) => r.status === 'error').length;
+
+  // Paginación de resultados (100 por página)
+  const [page, setPage] = useState(0);
+  const pageSize = 100;
+  const totalPages = Math.ceil(results.length / pageSize);
+  const pagedResults = results.slice(page * pageSize, (page + 1) * pageSize);
 
   return (
     <div className="rounded-lg border border-orange-300 bg-orange-50 p-6">
       <h3 className="mb-4 text-lg font-semibold text-orange-900">🧪 Prueba de Estrés</h3>
 
       <div className="space-y-4">
+        {/* Webhook URL */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            URL del Webhook n8n:
+          </label>
+          <input
+            type="text"
+            value={webhookUrl}
+            onChange={(e) => setWebhookUrl(e.target.value)}
+            disabled={isLoading}
+            placeholder="ej: https://webhook.site/xxxxx"
+            className="mt-2 w-full rounded border px-3 py-2 text-sm"
+          />
+        </div>
+
         {/* Usuarios (Input numérico) */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -127,7 +148,7 @@ export default function StressTestPanel() {
 
         {/* Resumen */}
         <div className="rounded bg-orange-100 p-3 text-center">
-          <div className="text-sm text-gray-700">Total de mensajes a crear:</div>
+          <div className="text-sm text-gray-700">Total de mensajes a enviar:</div>
           <div className="text-2xl font-bold text-orange-600">{totalMessages.toLocaleString()}</div>
         </div>
 
@@ -137,63 +158,115 @@ export default function StressTestPanel() {
           disabled={isLoading}
           className="w-full rounded bg-orange-600 px-4 py-2 font-medium text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isLoading ? 'Ejecutando prueba...' : '▶️ Ejecutar Prueba'}
+          {isLoading ? 'Enviando pruebas...' : '▶️ Ejecutar Prueba'}
         </button>
 
-        {/* Resultado */}
-        {result && (
-          <div
-            className={`rounded-lg border p-4 ${
-              result.status === 'success'
-                ? 'border-green-300 bg-green-50 text-green-800'
-                : 'border-red-300 bg-red-50 text-red-800'
-            }`}
-          >
-            <div className="font-medium">{result.message}</div>
-            {result.totalMessages > 0 && (
-              <div className="mt-3 space-y-2 text-sm">
-                <div>📊 {result.totalMessages.toLocaleString()} mensajes guardados</div>
-                <div>⏱️ Duración: {result.duration}ms ({(result.duration / 1000).toFixed(2)}s)</div>
-                <div>
-                  ⚡ Velocidad: {((result.totalMessages / (result.duration / 1000)).toFixed(0).toLocaleString())}
-                  {' '}
-                  msgs/s
-                </div>
-
-                {/* Resumen de usuarios */}
-                {result.users.length > 0 && (
-                  <div className="mt-4 border-t pt-3">
-                    <div className="font-semibold">
-                      Estados de usuarios: ✅ {successUsers} / ❌ {errorUsers}
-                    </div>
-
-                    {/* Lista de usuarios */}
-                    <div className="mt-3 max-h-40 space-y-1 overflow-y-auto rounded bg-white p-2 text-xs">
-                      {result.users.slice(0, 50).map((user, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-gray-700">
-                          <span className={`inline-block h-2 w-2 rounded-full ${user.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                          <span className="font-mono">{user.phone}</span>
-                        </div>
-                      ))}
-                      {result.users.length > 50 && (
-                        <div className="pt-2 text-center text-gray-500">
-                          ... y {result.users.length - 50} usuarios más
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+        {/* Resumen de resultados */}
+        {summary && (
+          <div className="rounded-lg border border-blue-300 bg-blue-50 p-4">
+            <div className="font-semibold text-blue-900">📊 Resultados</div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+              <div>
+                <div className="text-gray-600">Total enviados</div>
+                <div className="text-xl font-bold text-blue-600">{summary.total}</div>
               </div>
-            )}
+              <div>
+                <div className="text-gray-600">✅ Exitosos</div>
+                <div className="text-xl font-bold text-green-600">{summary.success}</div>
+              </div>
+              <div>
+                <div className="text-gray-600">❌ Errores</div>
+                <div className="text-xl font-bold text-red-600">{summary.error}</div>
+              </div>
+            </div>
+            <div className="mt-2 text-xs text-gray-600">
+              ⏱️ Duración: {(summary.duration / 1000).toFixed(2)}s
+            </div>
           </div>
         )}
 
         {/* Info */}
         <div className="rounded bg-blue-50 p-3 text-xs text-blue-800">
-          <strong>💡 Info:</strong> Crea múltiples números de teléfono (11XX XXX XXXX) con sus respectivos
-          mensajes. Máximo 10M usuarios, 10 msgs c/u. Default: 100 usuarios, 1 mensaje.
+          <strong>💡 Info:</strong> Envía mensajes reales con números aleatorios al webhook de n8n. Verás los
+          resultados en el panel de Executions de n8n.
         </div>
       </div>
+
+      {/* Lista de resultados (compacta) */}
+      {results.length > 0 && (
+        <div className="mt-6">
+          <h4 className="mb-3 font-semibold text-gray-800">📋 Detalle de envíos (página {page + 1}/{totalPages}):</h4>
+          <div className="max-h-96 space-y-1 overflow-y-auto">
+            {pagedResults.map((result, idx) => (
+              <div
+                key={idx}
+                className="rounded border border-gray-200 bg-white px-3 py-2 text-xs font-mono"
+              >
+                <div className="flex gap-3">
+                  <div className="w-24">
+                    <span className="font-semibold">Número:</span> {result.phone}
+                  </div>
+                  <div className="flex-1">
+                    <span className="font-semibold">Usuario:</span> {result.userName}
+                  </div>
+                  <div className="flex-1">
+                    <span className="font-semibold">Mensaje:</span> "{result.message.substring(0, 30)}..."
+                  </div>
+                  <div>
+                    <span
+                      className={`inline-block h-2 w-2 rounded-full ${
+                        result.status === 'success'
+                          ? 'bg-green-500'
+                          : result.status === 'error'
+                            ? 'bg-red-500'
+                            : 'bg-yellow-500'
+                      }`}
+                    ></span>
+                    <span className="ml-1 font-semibold">
+                      {result.status === 'success'
+                        ? '✅ Éxito'
+                        : result.status === 'error'
+                          ? '❌ Error'
+                          : '⏳ Pendiente'}
+                    </span>
+                  </div>
+                </div>
+                {result.response && (
+                  <div className="mt-1 text-gray-600">
+                    <span className="font-semibold">Respuesta:</span> {result.response.substring(0, 60)}
+                    {result.response.length > 60 ? '...' : ''}
+                  </div>
+                )}
+                {typeof result.waitTime === 'number' && (
+                  <div className="mt-1 text-gray-500 text-xs">
+                    ⏱️ Tiempo de espera: {result.waitTime} ms
+                  </div>
+                )}
+              </div>
+            ))}
+            {/* Pagination controls */}
+            <div className="flex justify-between py-2 text-xs text-gray-600">
+              <button
+                disabled={page === 0}
+                onClick={() => setPage((p) => Math.max(p - 1, 0))}
+                className="rounded bg-gray-200 px-2 py-1 disabled:opacity-50"
+              >
+                ← Anterior
+              </button>
+              <span>
+                Página {page + 1} de {totalPages}
+              </span>
+              <button
+                disabled={page + 1 >= totalPages}
+                onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
+                className="rounded bg-gray-200 px-2 py-1 disabled:opacity-50"
+              >
+                Siguiente →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
