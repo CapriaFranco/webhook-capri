@@ -8,6 +8,7 @@ import {
   saveMessage,
   unsubscribeFromMessages,
   clearPhoneMessages,
+  clearAllMessagesExcept,
   filterMessagesByDateRange,
   type Message,
 } from '@/lib/firebase-client';
@@ -138,6 +139,17 @@ export default function ChatInterface() {
     }
   };
 
+  const handleClearAllExcept = async () => {
+    if (!config?.phone) return;
+    if (!window.confirm('¿Borrar TODOS los mensajes EXCEPTO los de este número? Esta acción no se puede deshacer.')) return;
+    try {
+      await clearAllMessagesExcept(config.phone);
+      setAllMessages([]);
+    } catch (err) {
+      console.error('Error clearing all except:', err);
+    }
+  };
+
   return (
     <div className="flex h-[600px] flex-col overflow-hidden rounded-lg border bg-white shadow-sm">
       <div className="bg-green-600 p-4 text-white">
@@ -200,7 +212,7 @@ export default function ChatInterface() {
         )}
       </div>
 
-      <div className="border-t bg-gray-100 p-4">
+      <div className="border-t bg-gray-100 p-4 space-y-2">
         <div className="flex gap-2">
           <input
             type="text"
@@ -221,12 +233,19 @@ export default function ChatInterface() {
           <button
             onClick={handleClearChat}
             className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-            title="Borrar todos los mensajes"
+            title="Borrar mensajes de este número"
           >
             🗑️ Limpiar
           </button>
+          <button
+            onClick={handleClearAllExcept}
+            className="rounded bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+            title="Borrar TODO menos este número"
+          >
+            🧹 Limpiar Todo
+          </button>
         </div>
-        {!canSend && <div className="mt-2 text-xs text-gray-600">Configura el webhook para habilitar el envío.</div>}
+        {!canSend && <div className="text-xs text-gray-600">Configura el webhook para habilitar el envío.</div>}
       </div>
     </div>
   );

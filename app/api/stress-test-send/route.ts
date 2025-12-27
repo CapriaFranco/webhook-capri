@@ -8,6 +8,17 @@ type MessageUpdate = {
   direction: 'inbound' | 'outbound';
 };
 
+type TestResult = {
+  phone: string;
+  userName: string;
+  message: string;
+  status: string;
+  response: string;
+  n8nResponse?: string;
+  timestamp: string;
+  waitTime: number;
+};
+
 /**
  * Generar número de teléfono argentino formato: 54911XXXXXXXX (8 dígitos sin guiones)
  * Ejemplo: 5491112345678
@@ -102,7 +113,7 @@ const sampleMessages = [
 export async function POST(req: NextRequest) {
   try {
     const startTime = Date.now();
-    const { numUsers = 100, messagesPerUser = 1, webhookUrl } = await req.json();
+    const { numUsers = 100, messagesPerUser = 1, webhookUrl, waitForResponses = true, waitMs = 3000 } = await req.json();
 
     if (!webhookUrl) {
       return NextResponse.json({ error: 'webhookUrl es requerido' }, { status: 400 });
@@ -118,7 +129,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `messagesPerUser debe estar entre 1 y ${maxMsgs}` }, { status: 400 });
     }
 
-    const results = [];
+    const results: TestResult[] = [];
     let totalSent = 0;
     let successCount = 0;
     let errorCount = 0;
@@ -127,10 +138,14 @@ export async function POST(req: NextRequest) {
     const db = getAdminDatabase();
     const messagesRef = db.ref('messages');
     const updates: Record<string, MessageUpdate> = {};
+    
+    // Track phones sent to match with responses from n8n
+    const phonesSent = new Set<string>();
 
     for (let u = 0; u < numUsers; u++) {
       const phone = generatePhoneNumber();
       const userName = generateUserName(u + 1);
+      phonesSent.add(phone); // Track para later matching de respuestas
 
       for (let m = 0; m < messagesPerUser; m++) {
         const message = sampleMessages[m % sampleMessages.length];
@@ -192,6 +207,33 @@ export async function POST(req: NextRequest) {
       await db.ref().update(updates);
     }
 
+    // Si solicitamos esperar respuestas, aguardar un tiempo y luego buscar respuestas en Firebase
+    if (waitForResponses && waitMs > 0) {
+      console.log(`[stress-test] Esperando ${waitMs}ms por respuestas de n8n...`);
+      await new Promise(resolve => setTimeout(resolve, waitMs));
+      
+      // Capturar mensajes inbound que llegaron en este tiempo (potencialmente del flujo de n8n)
+      const snapshot = await db.ref('messages').get();
+      if (snapshot.exists()) {
+        const allMessages = snapshot.val() as Record<string, MessageUpdate>;
+        const inboundResponses: Record<string, MessageUpdate> = {};
+        
+        for (const [, msg] of Object.entries(allMessages)) {
+          if (msg.direction === 'inbound' && phonesSent.has(msg.phone)) {
+            inboundResponses[msg.phone] = msg;
+          }
+        }
+        
+        // Enriquecer resultados con las respuestas que vinieron desde n8n
+        for (const result of results) {
+          if (inboundResponses[result.phone]) {
+            result.n8nResponse = inboundResponses[result.phone].message;
+            console.log(`[stress-test] Respuesta n8n para ${result.phone}: ${inboundResponses[result.phone].message}`);
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       totalSent,
@@ -199,6 +241,7 @@ export async function POST(req: NextRequest) {
       errorCount,
       duration: Date.now() - startTime,
       results,
+      note: waitForResponses ? `Esperó ${waitMs}ms por respuestas desde n8n` : 'Sin espera por respuestas',
     });
   } catch (err) {
     console.error('[Stress Test Send] Error', err);

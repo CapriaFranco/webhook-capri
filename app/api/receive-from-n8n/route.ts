@@ -20,7 +20,13 @@ function ensureStore() {
 export async function POST(request: NextRequest) {
   try {
     let body: any = await request.json();
-    console.log('[receive-from-n8n] Raw body:', JSON.stringify(body, null, 2));
+    console.log('[receive-from-n8n] ✅ RECIBIDO:', {
+      timestamp: new Date().toISOString(),
+      bodyType: typeof body,
+      bodyKeys: typeof body === 'object' ? Object.keys(body) : 'N/A',
+      bodyPreview: JSON.stringify(body).substring(0, 200),
+    });
+    console.log('[receive-from-n8n] Raw body completo:', JSON.stringify(body, null, 2));
 
     // Aggressive parsing: if it's a string, keep parsing until we can't anymore
     let depth = 0;
@@ -122,6 +128,7 @@ export async function POST(request: NextRequest) {
 
       const messagesRef = db.ref('messages');
       await messagesRef.push(messageData);
+      console.log('[receive-from-n8n] ✅ GUARDADO EN FIREBASE:', { message, phone, timestamp });
 
       console.log('[receive-from-n8n] SUCCESS: Stored message for', phone);
       return NextResponse.json({ success: true });

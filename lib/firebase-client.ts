@@ -151,3 +151,24 @@ export function subscribeToPhoneMessages(
 export function unsubscribeFromMessages(unsubscribe: Unsubscribe) {
   unsubscribe();
 }
+
+/**
+ * Limpiar todos los mensajes EXCEPTO los de un número específico
+ */
+export async function clearAllMessagesExcept(phoneToKeep: string): Promise<void> {
+  const db = getClientDatabase();
+  const messagesRef = ref(db, 'messages');
+  const snapshot = await get(messagesRef);
+  const data = snapshot.val();
+
+  if (data) {
+    const deletePromises = Object.entries(data).map(([key, value]: [string, unknown]) => {
+      const msg = value as Record<string, string>;
+      if (msg.phone !== phoneToKeep) {
+        return set(ref(db, `messages/${key}`), null);
+      }
+      return Promise.resolve();
+    });
+    await Promise.all(deletePromises);
+  }
+}

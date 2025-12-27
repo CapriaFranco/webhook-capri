@@ -8,6 +8,7 @@ type TestResult = {
   message: string;
   status: 'pending' | 'sent' | 'success' | 'error';
   response: string;
+  n8nResponse?: string; // Respuesta del flujo n8n si la hay
   timestamp: string;
   waitTime?: number; // ms que tardó la petición al webhook
 };
@@ -58,6 +59,8 @@ export default function StressTestPanel() {
           numUsers: Number(numUsers),
           messagesPerUser: Number(messagesPerUser),
           webhookUrl: webhookUrl.trim(),
+          waitForResponses: true, // Esperar respuestas del flujo n8n
+          waitMs: 5000, // Esperar 5 segundos para que n8n procese
         }),
       });
 
@@ -231,9 +234,17 @@ export default function StressTestPanel() {
                 </div>
                 {result.response && (
                   <div className="mt-2 bg-gray-100 rounded p-2 text-xs">
-                    <div className="font-semibold text-gray-700 mb-1">Respuesta:</div>
+                    <div className="font-semibold text-gray-700 mb-1">Respuesta HTTP inmediata:</div>
                     <pre className="text-gray-700 whitespace-pre-wrap break-words overflow-auto max-h-32 text-xs">
                       {result.response}
+                    </pre>
+                  </div>
+                )}
+                {result.n8nResponse && (
+                  <div className="mt-2 bg-blue-50 rounded p-2 text-xs border border-blue-200">
+                    <div className="font-semibold text-blue-700 mb-1">✅ Respuesta del flujo n8n:</div>
+                    <pre className="text-blue-700 whitespace-pre-wrap break-words overflow-auto max-h-32 text-xs">
+                      {result.n8nResponse}
                     </pre>
                   </div>
                 )}
