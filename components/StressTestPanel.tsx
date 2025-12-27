@@ -230,9 +230,11 @@ export default function StressTestPanel() {
                   </div>
                 </div>
                 {result.response && (
-                  <div className="mt-1 text-gray-600">
-                    <span className="font-semibold">Respuesta:</span> {result.response.substring(0, 60)}
-                    {result.response.length > 60 ? '...' : ''}
+                  <div className="mt-2 bg-gray-100 rounded p-2 text-xs">
+                    <div className="font-semibold text-gray-700 mb-1">Respuesta:</div>
+                    <pre className="text-gray-700 whitespace-pre-wrap break-words overflow-auto max-h-32 text-xs">
+                      {result.response}
+                    </pre>
                   </div>
                 )}
                 {typeof result.waitTime === 'number' && (
