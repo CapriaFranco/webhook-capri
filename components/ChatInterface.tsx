@@ -66,44 +66,35 @@ export default function ChatInterface() {
 
   const sendToN8n = async (text: string) => {
     if (!config) return;
-    const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const newMsg: StoredMessage = {
-      id,
-      message: text,
-      phone: config.phone,
-      timestamp: new Date().toISOString(),
-      direction: 'outbound',
-      status: 'sending',
-    };
 
-    // Mostrar localmente antes de enviar
-    setMessages((prev) => [...prev, newMsg]);
+    const timestamp = new Date().toISOString();
 
+    // 1. Guardar en Firebase inmediatamente (fast path)
     try {
-      // Guardar en Firebase
       await saveMessage({
         message: text,
         phone: config.phone,
-        timestamp: new Date().toISOString(),
+        timestamp,
         direction: 'outbound',
       });
-
-      // Enviar a n8n
-      const res = await fetch('/api/send-to-n8n', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          webhookUrl: config.webhookUrl,
-          message: text,
-          phone: config.phone,
-          name: config.name,
-        }),
-      });
-      if (!res.ok) throw new Error('send failed');
-    } catch (err) {
-      console.error('Error sending message:', err);
-      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, status: 'error' } : m)));
+    } catch (firebaseErr) {
+      console.error('Error saving to Firebase:', firebaseErr);
+      return;
     }
+
+    // 2. Enviar a n8n en paralelo (no bloquea)
+    fetch('/api/send-to-n8n', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        webhookUrl: config.webhookUrl,
+        message: text,
+        phone: config.phone,
+        name: config.name,
+      }),
+    }).catch((err) => {
+      console.error('Error sending to n8n:', err);
+    });
   };
 
   const handleSendText = () => {
