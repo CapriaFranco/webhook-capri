@@ -1,16 +1,22 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { loadConfig, getMessages, pushMessage, saveMessages } from '@/lib/storage';
-import type { StoredConfig, StoredMessage } from '@/lib/storage';
+import { loadConfig } from '@/lib/storage';
+import type { StoredConfig } from '@/lib/storage';
+import { subscribeToPhoneMessages, saveMessage, unsubscribeFromMessages, type Message } from '@/lib/firebase-client';
+import type { Unsubscribe } from 'firebase/database';
+
+type StoredMessage = Message & {
+  status?: 'sending' | 'sent' | 'error';
+};
 
 type MessageType = 'text' | 'audio' | 'image';
 
 export default function ChatInterface() {
-  const [messages, setMessages] = useState<StoredMessage[]>(() => getMessages());
+  const [messages, setMessages] = useState<StoredMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [config, setConfig] = useState<StoredConfig | null>(null);
-  const pollingRef = useRef<number | null>(null);
+  const unsubscribeRef = useRef<Unsubscribe | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -22,58 +28,33 @@ export default function ChatInterface() {
     return () => window.removeEventListener('whatsapp-config-updated', onCfg);
   }, []);
 
+  // Scroll to bottom when messages change
   useEffect(() => {
-    // persist messages in sessionStorage
-    saveMessages(messages);
-    // scroll to bottom
     setTimeout(() => {
       if (!containerRef.current) return;
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }, 50);
   }, [messages]);
 
+  // Subscribe to Firebase messages for current phone
   useEffect(() => {
-    // start polling for inbound messages every 3s when config exists
-    function startPolling() {
-      if (!config?.phone) return;
-      if (pollingRef.current) return;
-      const id = window.setInterval(async () => {
-        try {
-          const res = await fetch(`/api/receive-from-n8n?phone=${encodeURIComponent(config.phone)}`);
-          if (!res.ok) return;
-          const json = await res.json();
-          if (json?.messages && Array.isArray(json.messages) && json.messages.length) {
-            const newMsgs: StoredMessage[] = json.messages.map((m: any) => ({
-              id: m.id,
-              text: String(m.message),
-              sender: 'bot',
-              timestamp: m.timestamp ?? new Date().toISOString(),
-              status: 'sent',
-            }));
-            setMessages((prev) => {
-              const merged = [...prev, ...newMsgs];
-              saveMessages(merged);
-              return merged;
-            });
-          }
-        } catch (err) {
-          // ignore polling errors
+    if (!config?.phone) return;
+
+    try {
+      const unsubscribe = subscribeToPhoneMessages(config.phone, (fbMessages) => {
+        setMessages(fbMessages.map((m) => ({ ...m, status: 'sent' as const })));
+      });
+      unsubscribeRef.current = unsubscribe;
+      return () => {
+        if (unsubscribeRef.current) {
+          unsubscribeFromMessages(unsubscribeRef.current);
+          unsubscribeRef.current = null;
         }
-      }, 3000);
-      pollingRef.current = id;
+      };
+    } catch (err) {
+      console.error('Error subscribing to Firebase:', err);
     }
-
-    function stopPolling() {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-    }
-
-    if (config?.phone) startPolling();
-    else stopPolling();
-    return stopPolling;
-  }, [config]);
+  }, [config?.phone]);
 
   const canSend = Boolean(config?.webhookUrl?.trim());
 
@@ -86,22 +67,42 @@ export default function ChatInterface() {
   const sendToN8n = async (text: string) => {
     if (!config) return;
     const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const msg: StoredMessage = { id, text, sender: 'user', timestamp: new Date().toISOString(), status: 'sending' };
-    setMessages((prev) => {
-      const out = [...prev, msg];
-      saveMessages(out);
-      return out;
-    });
+    const newMsg: StoredMessage = {
+      id,
+      message: text,
+      phone: config.phone,
+      sender: 'user',
+      timestamp: new Date().toISOString(),
+      direction: 'outbound',
+      status: 'sending',
+    };
+
+    // Mostrar localmente antes de enviar
+    setMessages((prev) => [...prev, newMsg]);
 
     try {
+      // Guardar en Firebase
+      await saveMessage({
+        message: text,
+        phone: config.phone,
+        timestamp: new Date().toISOString(),
+        direction: 'outbound',
+      });
+
+      // Enviar a n8n
       const res = await fetch('/api/send-to-n8n', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ webhookUrl: config.webhookUrl, message: text, phone: config.phone, name: config.name }),
+        body: JSON.stringify({
+          webhookUrl: config.webhookUrl,
+          message: text,
+          phone: config.phone,
+          name: config.name,
+        }),
       });
       if (!res.ok) throw new Error('send failed');
-      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, status: 'sent' } : m)));
     } catch (err) {
+      console.error('Error sending message:', err);
       setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, status: 'error' } : m)));
     }
   };
@@ -124,16 +125,16 @@ export default function ChatInterface() {
           <div className="mt-10 text-center text-gray-400">No hay mensajes. Envía uno para probar.</div>
         ) : (
           messages.map((msg) => (
-            <div key={msg.id} className={msg.sender === 'user' ? 'flex justify-end' : 'flex justify-start'}>
+            <div key={msg.id} className={msg.direction === 'outbound' ? 'flex justify-end' : 'flex justify-start'}>
               <div
-                className={`max-w-xs rounded-lg p-3 ${msg.sender === 'user' ? 'bg-green-100' : 'bg-white'}`}
+                className={`max-w-xs rounded-lg p-3 ${msg.direction === 'outbound' ? 'bg-green-100' : 'bg-white'}`}
               >
-                <p className="text-sm">{msg.text}</p>
+                <p className="text-sm">{msg.message}</p>
                 <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
                   {new Date(msg.timestamp).toLocaleTimeString()}
-                  {msg.sender === 'user' && msg.status === 'sending' && ' Enviando...'}
-                  {msg.sender === 'user' && msg.status === 'sent' && ' ✓✓'}
-                  {msg.sender === 'user' && msg.status === 'error' && ' ❌'}
+                  {msg.direction === 'outbound' && msg.status === 'sending' && ' Enviando...'}
+                  {msg.direction === 'outbound' && msg.status === 'sent' && ' ✓✓'}
+                  {msg.direction === 'outbound' && msg.status === 'error' && ' ❌'}
                 </div>
               </div>
             </div>

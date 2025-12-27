@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAdminDatabase } from '@/lib/firebase-admin';
 
 type Inbound = {
   message: string;
@@ -108,18 +109,30 @@ export async function POST(request: NextRequest) {
 
     const { message, phone } = normalized as Inbound;
 
-    const store = ensureStore();
-    const item = {
-      id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
-      message,
-      phone,
-      timestamp: new Date().toISOString(),
-    };
-    if (!store[phone]) store[phone] = [];
-    store[phone].push(item);
+    // Guardar en Firebase Realtime Database
+    try {
+      const db = getAdminDatabase();
+      const timestamp = new Date().toISOString();
+      const messageData = {
+        message,
+        phone,
+        timestamp,
+        direction: 'inbound',
+      };
 
-    console.log('[receive-from-n8n] SUCCESS: Stored message for', phone);
-    return NextResponse.json({ success: true });
+      const messagesRef = db.ref('messages');
+      await messagesRef.push(messageData);
+
+      console.log('[receive-from-n8n] SUCCESS: Stored message for', phone);
+      return NextResponse.json({ success: true });
+    } catch (firebaseErr) {
+      const errMsg = firebaseErr instanceof Error ? firebaseErr.message : 'firebase error';
+      console.log('[receive-from-n8n] Firebase Error:', errMsg);
+      return NextResponse.json(
+        { success: false, error: 'Failed to save to database: ' + errMsg },
+        { status: 500 }
+      );
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown error';
     console.log('[receive-from-n8n] EXCEPTION:', message);
@@ -133,14 +146,22 @@ export async function GET(request: NextRequest) {
     const phone = url.searchParams.get('phone');
     if (!phone) return NextResponse.json({ success: false, error: 'phone query required' }, { status: 400 });
 
-    const store = ensureStore();
-    const msgs = store[phone] ?? [];
-    // return messages and clear them
-    store[phone] = [];
+    const db = getAdminDatabase();
+    const snapshot = await db.ref('messages').orderByChild('phone').equalTo(phone).once('value');
+    const data = snapshot.val() || {};
 
-    return NextResponse.json({ success: true, messages: msgs });
+    const messages = Object.entries(data).map(([id, msg]: [string, any]) => ({
+      id,
+      ...msg,
+    }));
+
+    // Ordenar por timestamp descendente (más recientes primero)
+    messages.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return NextResponse.json({ success: true, messages });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'unknown error';
+    console.log('[receive-from-n8n GET] Error:', message);
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
