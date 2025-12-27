@@ -1,5 +1,6 @@
 import ConfigPanel from '@/components/ConfigPanel';
 import ChatInterface from '@/components/ChatInterface';
+import StressTestPanel from '@/components/StressTestPanel';
 
 export default function Home() {
   return (
@@ -11,8 +12,9 @@ export default function Home() {
         </header>
 
         <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-6">
             <ConfigPanel />
+            <StressTestPanel />
           </div>
 
           <div className="lg:col-span-2">
