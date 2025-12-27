@@ -71,7 +71,6 @@ export default function ChatInterface() {
       id,
       message: text,
       phone: config.phone,
-      sender: 'user',
       timestamp: new Date().toISOString(),
       direction: 'outbound',
       status: 'sending',
