@@ -69,7 +69,7 @@ export default function ChatInterface() {
 
     const timestamp = new Date().toISOString();
 
-    // 1. Guardar en Firebase inmediatamente (fast path)
+    // 1. Guardar en Firebase inmediatamente (lo más importante)
     try {
       await saveMessage({
         message: text,
@@ -77,24 +77,28 @@ export default function ChatInterface() {
         timestamp,
         direction: 'outbound',
       });
+      console.log('[ChatInterface] Message saved to Firebase');
     } catch (firebaseErr) {
-      console.error('Error saving to Firebase:', firebaseErr);
+      console.error('[ChatInterface] Error saving to Firebase:', firebaseErr);
       return;
     }
 
-    // 2. Enviar a n8n en paralelo (no bloquea)
-    fetch('/api/send-to-n8n', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        webhookUrl: config.webhookUrl,
-        message: text,
-        phone: config.phone,
-        name: config.name,
-      }),
-    }).catch((err) => {
-      console.error('Error sending to n8n:', err);
-    });
+    // 2. Enviar a n8n en paralelo (opcional, no bloquea)
+    if (config.webhookUrl) {
+      fetch('/api/send-to-n8n', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          webhookUrl: config.webhookUrl,
+          message: text,
+          phone: config.phone,
+          name: config.name,
+        }),
+      }).catch((err) => {
+        console.warn('[ChatInterface] Warning: Failed to send to n8n webhook:', err);
+        // No es crítico si falla - el mensaje ya está en Firebase
+      });
+    }
   };
 
   const handleSendText = () => {
