@@ -83,8 +83,6 @@ export default function StressTestPanel() {
   };
 
   const totalMessages = numUsers * messagesPerUser;
-  const successResults = results.filter((r) => r.status === 'success').length;
-  const errorResults = results.filter((r) => r.status === 'error').length;
 
   // Paginación de resultados (100 por página)
   const [page, setPage] = useState(0);
@@ -210,7 +208,7 @@ export default function StressTestPanel() {
                     <span className="font-semibold">Usuario:</span> {result.userName}
                   </div>
                   <div className="flex-1">
-                    <span className="font-semibold">Mensaje:</span> "{result.message.substring(0, 30)}..."
+                    <span className="font-semibold">Mensaje:</span> &quot;{result.message.substring(0, 30)}&hellip;&quot;
                   </div>
                   <div>
                     <span

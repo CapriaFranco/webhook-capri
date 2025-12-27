@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDatabase } from '@/lib/firebase-admin';
 
+type MessageUpdate = {
+  message: string;
+  phone: string;
+  timestamp: string;
+  direction: 'inbound' | 'outbound';
+};
+
 /**
  * Generar número de teléfono argentino formato: 54911XXXXXXXX (8 dígitos sin guiones)
  * Ejemplo: 5491112345678
@@ -64,7 +71,7 @@ export async function POST(req: NextRequest) {
     // Opcional: guardar en Firebase (para trazabilidad)
     const db = getAdminDatabase();
     const messagesRef = db.ref('messages');
-    const updates: Record<string, any> = {};
+    const updates: Record<string, MessageUpdate> = {};
 
     for (let u = 0; u < numUsers; u++) {
       const phone = generatePhoneNumber();

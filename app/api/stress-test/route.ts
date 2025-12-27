@@ -1,6 +1,19 @@
 import { getAdminDatabase } from '@/lib/firebase-admin';
 import { NextRequest, NextResponse } from 'next/server';
 
+type MessageUpdate = {
+  message: string;
+  phone: string;
+  timestamp: string;
+  direction: 'inbound' | 'outbound';
+};
+
+type UserResult = {
+  phone: string;
+  status: 'success' | 'error';
+  message: string;
+};
+
 /**
  * Generar número de teléfono aleatorio formato: 11XX XXX XXXX
  */
@@ -8,12 +21,6 @@ function generatePhoneNumber(): string {
   const digits = Array.from({ length: 10 }, () => Math.floor(Math.random() * 10)).join('');
   return `11${digits}`;
 }
-
-type UserResult = {
-  phone: string;
-  status: 'success' | 'error';
-  message: string;
-};
 
 /**
  * POST /api/stress-test
@@ -54,7 +61,7 @@ export async function POST(req: NextRequest) {
       'Listo para producción',
     ];
 
-    const updates: Record<string, any> = {};
+    const updates: Record<string, MessageUpdate> = {};
     const users: UserResult[] = [];
     let totalMessages = 0;
 
