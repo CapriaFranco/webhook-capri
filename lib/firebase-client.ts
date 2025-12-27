@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getDatabase, ref, push, set, onValue, off } from 'firebase/database';
+import { getDatabase, ref, push, set, onValue, off, get } from 'firebase/database';
 import type { Database, DatabaseReference, Unsubscribe } from 'firebase/database';
 
 let clientDb: Database | null = null;
@@ -62,12 +62,59 @@ export function subscribeToMessages(
         msgs.push({ id: key, ...value });
       });
     }
-    // Ordenar por timestamp descendente
-    msgs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    // Ordenar por timestamp ASCENDENTE (nuevos abajo, como chat normal)
+    msgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     callback(msgs);
   });
 
   return unsubscribe;
+}
+
+/**
+ * Filtrar mensajes por rango de fechas
+ */
+export function filterMessagesByDateRange(
+  messages: Message[],
+  startDate: Date | null,
+  endDate: Date | null
+): Message[] {
+  if (!startDate && !endDate) return messages;
+
+  return messages.filter((msg) => {
+    const msgDate = new Date(msg.timestamp);
+    if (startDate && msgDate < startDate) return false;
+    if (endDate && msgDate > endDate) return false;
+    return true;
+  });
+}
+
+/**
+ * Limpiar todos los mensajes de la base de datos
+ */
+export async function clearAllMessages(): Promise<void> {
+  const db = getClientDatabase();
+  const messagesRef = ref(db, 'messages');
+  await set(messagesRef, null);
+}
+
+/**
+ * Limpiar mensajes de un número específico
+ */
+export async function clearPhoneMessages(phone: string): Promise<void> {
+  const db = getClientDatabase();
+  const messagesRef = ref(db, 'messages');
+  const snapshot = await get(messagesRef);
+  const data = snapshot.val();
+
+  if (data) {
+    const deletePromises = Object.entries(data).map(([key, value]: [string, any]) => {
+      if (value.phone === phone) {
+        return set(ref(db, `messages/${key}`), null);
+      }
+      return Promise.resolve();
+    });
+    await Promise.all(deletePromises);
+  }
 }
 
 /**
@@ -90,7 +137,8 @@ export function subscribeToPhoneMessages(
         }
       });
     }
-    msgs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    // Ordenar por timestamp ASCENDENTE (nuevos abajo, como chat normal)
+    msgs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     callback(msgs);
   });
 

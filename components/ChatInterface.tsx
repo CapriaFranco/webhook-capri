@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadConfig } from '@/lib/storage';
 import type { StoredConfig } from '@/lib/storage';
-import { subscribeToPhoneMessages, saveMessage, unsubscribeFromMessages, type Message } from '@/lib/firebase-client';
+import {
+  subscribeToPhoneMessages,
+  saveMessage,
+  unsubscribeFromMessages,
+  clearPhoneMessages,
+  filterMessagesByDateRange,
+  type Message,
+} from '@/lib/firebase-client';
 import type { Unsubscribe } from 'firebase/database';
 
 type StoredMessage = Message & {
@@ -13,9 +20,11 @@ type StoredMessage = Message & {
 type MessageType = 'text' | 'audio' | 'image';
 
 export default function ChatInterface() {
-  const [messages, setMessages] = useState<StoredMessage[]>([]);
+  const [allMessages, setAllMessages] = useState<StoredMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [config, setConfig] = useState<StoredConfig | null>(null);
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const unsubscribeRef = useRef<Unsubscribe | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -27,6 +36,17 @@ export default function ChatInterface() {
     window.addEventListener('whatsapp-config-updated', onCfg);
     return () => window.removeEventListener('whatsapp-config-updated', onCfg);
   }, []);
+
+  // Filtrar mensajes por rango de fechas
+  const messages = useMemo(() => {
+    let filtered = [...allMessages];
+    if (startDate || endDate) {
+      const start = startDate ? new Date(startDate) : null;
+      const end = endDate ? new Date(endDate) : null;
+      filtered = filterMessagesByDateRange(filtered, start, end);
+    }
+    return filtered;
+  }, [allMessages, startDate, endDate]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -42,7 +62,7 @@ export default function ChatInterface() {
 
     try {
       const unsubscribe = subscribeToPhoneMessages(config.phone, (fbMessages) => {
-        setMessages(fbMessages.map((m) => ({ ...m, status: 'sent' as const })));
+        setAllMessages(fbMessages.map((m) => ({ ...m, status: 'sent' as const })));
       });
       unsubscribeRef.current = unsubscribe;
       return () => {
@@ -107,11 +127,55 @@ export default function ChatInterface() {
     setInputText('');
   };
 
+  const handleClearChat = async () => {
+    if (!config?.phone) return;
+    if (!window.confirm('¿Estás seguro de que quieres borrar todos los mensajes de este número?')) return;
+    try {
+      await clearPhoneMessages(config.phone);
+      setAllMessages([]);
+    } catch (err) {
+      console.error('Error clearing messages:', err);
+    }
+  };
+
   return (
     <div className="flex h-[600px] flex-col overflow-hidden rounded-lg border bg-white shadow-sm">
       <div className="bg-green-600 p-4 text-white">
         <div className="text-lg font-semibold">Simulador WhatsApp</div>
         <div className="text-sm opacity-90">{headerSubtitle}</div>
+      </div>
+
+      {/* Filtro de fechas */}
+      <div className="border-b bg-gray-50 p-3">
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-gray-700">Desde:</label>
+            <input
+              type="datetime-local"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full rounded border px-2 py-1 text-sm"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs font-medium text-gray-700">Hasta:</label>
+            <input
+              type="datetime-local"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full rounded border px-2 py-1 text-sm"
+            />
+          </div>
+          <button
+            onClick={() => {
+              setStartDate('');
+              setEndDate('');
+            }}
+            className="mt-5 rounded bg-gray-400 px-3 py-1 text-xs text-white hover:bg-gray-500"
+          >
+            Limpiar filtro
+          </button>
+        </div>
       </div>
 
       <div ref={containerRef} className="flex-1 space-y-2 overflow-y-auto bg-gray-50 p-4">
@@ -153,6 +217,13 @@ export default function ChatInterface() {
             className="rounded bg-green-600 px-6 py-2 font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Enviar
+          </button>
+          <button
+            onClick={handleClearChat}
+            className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            title="Borrar todos los mensajes"
+          >
+            🗑️ Limpiar
           </button>
         </div>
         {!canSend && <div className="mt-2 text-xs text-gray-600">Configura el webhook para habilitar el envío.</div>}
