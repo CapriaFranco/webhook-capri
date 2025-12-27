@@ -18,10 +18,65 @@ function generatePhoneNumber(): string {
 }
 
 /**
+ * Generar ID de mensaje realista (similar a wamid.XXX)
+ */
+function generateMessageId(): string {
+  const random = Math.random().toString(36).substring(2, 15);
+  return `wamid.${Date.now()}_${random}`;
+}
+
+/**
  * Generar nombre de usuario aleatorio
  */
 function generateUserName(index: number): string {
   return `Usuario${index}`;
+}
+
+/**
+ * Construir payload en formato WhatsApp API / 360dialog
+ */
+function buildWhatsAppPayload(phone: string, userName: string, message: string): Record<string, unknown> {
+  const timestamp = Math.floor(Date.now() / 1000); // Timestamp en segundos como WhatsApp
+
+  return {
+    object: 'whatsapp_business_account',
+    entry: [
+      {
+        id: '1195530322139282',
+        changes: [
+          {
+            value: {
+              messaging_product: 'whatsapp',
+              metadata: {
+                display_phone_number: phone,
+                phone_number_id: '895152937018567',
+              },
+              contacts: [
+                {
+                  profile: {
+                    name: userName,
+                  },
+                  wa_id: phone,
+                },
+              ],
+              messages: [
+                {
+                  from: phone,
+                  id: generateMessageId(),
+                  timestamp: timestamp.toString(),
+                  type: 'text',
+                  text: {
+                    body: message,
+                  },
+                },
+              ],
+            },
+            field: 'messages',
+          },
+        ],
+      },
+    ],
+  };
 }
 
 /**
@@ -80,12 +135,9 @@ export async function POST(req: NextRequest) {
       for (let m = 0; m < messagesPerUser; m++) {
         const message = sampleMessages[m % sampleMessages.length];
         const timestamp = new Date().toISOString();
-        const payload = {
-          message,
-          phone,
-          name: userName,
-          timestamp,
-        };
+        
+        // Construir payload en formato WhatsApp API / 360dialog
+        const payload = buildWhatsAppPayload(phone, userName, message);
 
         // Guardar en Firebase antes de enviar (para que exista aunque falle el webhook)
         const newKey = messagesRef.push().key;
