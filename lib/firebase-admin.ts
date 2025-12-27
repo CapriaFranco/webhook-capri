@@ -8,15 +8,24 @@ export function getAdminDatabase() {
 
   // Inicializar admin SDK
   if (getApps().length === 0) {
-    const serviceAccount = process.env.FIREBASE_ADMIN_SDK_JSON
-      ? JSON.parse(process.env.FIREBASE_ADMIN_SDK_JSON)
-      : null;
+    let serviceAccount: any = null;
 
-    if (!serviceAccount) {
+    try {
+      const jsonStr = process.env.FIREBASE_ADMIN_SDK_JSON;
+      if (!jsonStr) {
+        throw new Error('FIREBASE_ADMIN_SDK_JSON env var not set');
+      }
+
+      serviceAccount = JSON.parse(jsonStr);
+    } catch (parseErr) {
+      const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+      console.error('[firebase-admin] Failed to parse FIREBASE_ADMIN_SDK_JSON:', msg);
       throw new Error(
-        'FIREBASE_ADMIN_SDK_JSON env var not set. Get it from Firebase Console > Project Settings > Service Accounts > Generate private key'
+        `Failed to parse Firebase admin credentials: ${msg}. Make sure FIREBASE_ADMIN_SDK_JSON is valid JSON.`
       );
     }
+
+    console.log('[firebase-admin] Successfully parsed credentials for:', serviceAccount?.project_id);
 
     initializeApp({
       credential: cert(serviceAccount),
