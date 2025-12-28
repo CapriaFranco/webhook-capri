@@ -14,6 +14,12 @@ type TestResult = {
 
 export default function ResultsPanel() {
   const [results, setResults] = useState<TestResult[]>([])
+  const [tooltip, setTooltip] = useState<{ show: boolean; content: string; x: number; y: number }>({
+    show: false,
+    content: "",
+    x: 0,
+    y: 0,
+  })
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -25,6 +31,20 @@ export default function ResultsPanel() {
     window.addEventListener('stress-test-results', handler as EventListener);
     return () => window.removeEventListener('stress-test-results', handler as EventListener);
   }, []);
+
+  const handleTooltip = (e: React.MouseEvent<HTMLSpanElement>, content: string) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    setTooltip({
+      show: true,
+      content,
+      x: rect.left,
+      y: rect.bottom + 4,
+    })
+  }
+
+  const handleTooltipHide = () => {
+    setTooltip({ ...tooltip, show: false })
+  }
 
   if (results.length === 0) return null
 
@@ -48,6 +68,7 @@ export default function ResultsPanel() {
               <th>Número</th>
               <th>Tiempo</th>
               <th>Mensaje</th>
+              <th>Output</th>
             </tr>
           </thead>
           <tbody>
@@ -72,14 +93,54 @@ export default function ResultsPanel() {
                 <td className="mono-text">{r.timestamp ? new Date(r.timestamp).toLocaleTimeString() : "-"}</td>
                 <td className="mono-text">{r.phone}</td>
                 <td className="mono-text">{typeof r.responseTime === "number" ? `${r.responseTime}ms` : "-"}</td>
-                <td style={{ maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {r.message}
+                <td style={{ width: "40px" }}>
+                  <span
+                    onMouseEnter={(e) => handleTooltip(e, r.message)}
+                    onMouseLeave={handleTooltipHide}
+                    style={{ cursor: "pointer", fontSize: "1.2em" }}
+                  >
+                    ⋮
+                  </span>
+                </td>
+                <td style={{ maxWidth: "150px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {r.n8nResponse ? r.n8nResponse.substring(0, 50) + (r.n8nResponse.length > 50 ? "..." : "") : "-"}
+                  {r.n8nResponse && (
+                    <span
+                      onMouseEnter={(e) => handleTooltip(e, r.n8nResponse || "")}
+                      onMouseLeave={handleTooltipHide}
+                      style={{ marginLeft: "var(--space-xs)", cursor: "pointer" }}
+                    >
+                      ⓘ
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {tooltip.show && (
+        <div
+          style={{
+            position: "fixed",
+            left: `${tooltip.x}px`,
+            top: `${tooltip.y}px`,
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-strong)",
+            borderRadius: "var(--radius-md)",
+            padding: "var(--space-md)",
+            maxWidth: "400px",
+            wordWrap: "break-word",
+            zIndex: 1000,
+            fontSize: "var(--text-xs)",
+            color: "var(--text-primary)",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+          }}
+        >
+          {tooltip.content}
+        </div>
+      )}
     </div>
   )
 }

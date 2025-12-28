@@ -285,11 +285,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Calcular métricas de timing
+    // Calcular métricas de timing (acumulativas)
     const metrics = {
       lessThan1s: 0,
       lessThan5s: 0,
-      moreThan5s: 0,
+      lessThan30s: 0,
       noResponse: 0,
       errors: 0,
     };
@@ -300,12 +300,16 @@ export async function POST(req: NextRequest) {
       } else if (result.status === 'no_response') {
         metrics.noResponse++;
       } else if (result.status === 'success' && result.responseTime !== undefined) {
+        // Acumulativo: contar en todos los rangos que apliquen
         if (result.responseTime < 1000) {
           metrics.lessThan1s++;
+          metrics.lessThan5s++;
+          metrics.lessThan30s++;
         } else if (result.responseTime < 5000) {
           metrics.lessThan5s++;
-        } else {
-          metrics.moreThan5s++;
+          metrics.lessThan30s++;
+        } else if (result.responseTime < 30000) {
+          metrics.lessThan30s++;
         }
       }
     }

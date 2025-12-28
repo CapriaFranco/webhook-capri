@@ -29,7 +29,7 @@ export default function StressTestPanel() {
   const [metrics, setMetrics] = useState<{
     lessThan1s: number
     lessThan5s: number
-    moreThan5s: number
+    lessThan30s: number
     noResponse: number
     errors: number
   } | null>(null)
@@ -63,6 +63,7 @@ export default function StressTestPanel() {
     try {
       const startTime = Date.now()
       const response = await fetch("/api/stress-test-send", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           numUsers: Number(numUsers),
@@ -76,13 +77,23 @@ export default function StressTestPanel() {
       const data = await response.json()
       const duration = Date.now() - startTime
 
-      if (response.ok) {
-        setSummary({
-          total: data.totalSent,
-          success: data.successCount,
-          error: data.errorCount,
-          duration,
-        })
+        if (response.ok) {
+          setSummary({
+            total: data.totalSent,
+            success: data.successCount,
+            error: data.errorCount,
+            duration,
+          })
+          // set metrics if provided by the API
+          if (data.metrics) {
+            setMetrics({
+              lessThan1s: data.metrics.lessThan1s ?? 0,
+              lessThan5s: data.metrics.lessThan5s ?? 0,
+              lessThan30s: data.metrics.lessThan30s ?? 0,
+              noResponse: data.metrics.noResponse ?? 0,
+              errors: data.metrics.errors ?? 0,
+            })
+          }
         try {
           window.dispatchEvent(
             new CustomEvent("stress-test-results", {
@@ -105,6 +116,8 @@ export default function StressTestPanel() {
   }
 
   const totalMessages = numUsers * messagesPerUser
+
+    // timing ranges will be read from `metrics` returned by the API
 
   return (
     <div className="space-y-lg">
@@ -168,24 +181,20 @@ export default function StressTestPanel() {
             {metrics && (
               <div>
                 <div className="label-text" style={{ marginBottom: "var(--space-md)" }}>
-                  Tiempos de Respuesta
+                  Rangos de tiempo
                 </div>
-                <div className="grid-2">
+                <div className="grid-3">
                   <div className="metric-card">
-                    <div className="metric-label">{"< 1s"}</div>
-                    <div className="metric-value metric-value-sm">{metrics.lessThan1s}</div>
+                    <div className="metric-label">&lt; 1s</div>
+                    <div className="metric-value">{metrics.lessThan1s}</div>
                   </div>
                   <div className="metric-card">
-                    <div className="metric-label">{"< 5s"}</div>
-                    <div className="metric-value metric-value-sm">{metrics.lessThan5s}</div>
+                    <div className="metric-label">&lt; 5s</div>
+                    <div className="metric-value">{metrics.lessThan5s}</div>
                   </div>
                   <div className="metric-card">
-                    <div className="metric-label">{"> 5s"}</div>
-                    <div className="metric-value metric-value-sm">{metrics.moreThan5s}</div>
-                  </div>
-                  <div className="metric-card">
-                    <div className="metric-label">Sin Respuesta</div>
-                    <div className="metric-value metric-value-sm">{metrics.noResponse}</div>
+                    <div className="metric-label">&lt; 30s</div>
+                    <div className="metric-value">{metrics.lessThan30s ?? 0}</div>
                   </div>
                 </div>
               </div>
