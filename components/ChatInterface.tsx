@@ -103,10 +103,10 @@ export default function ChatInterface() {
     }
   }, [config?.phone])
 
-  const canSend = Boolean(config?.webhookUrl?.trim())
+  const canSend = Boolean(config?.phone)
 
   const sendToN8n = async (text: string) => {
-    if (!config) return
+    if (!config?.phone) return
 
     const timestamp = new Date().toISOString()
 
@@ -122,7 +122,8 @@ export default function ChatInterface() {
       return
     }
 
-    if (config.webhookUrl) {
+    // Enviar a n8n solo si webhook está configurado
+    if (config.webhookUrl?.trim()) {
       fetch("/api/send-to-n8n", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -199,12 +200,11 @@ export default function ChatInterface() {
           onKeyDown={(e) => e.key === "Enter" && handleSendText()}
           placeholder="Type a message..."
           className="input"
-          disabled={!canSend}
           style={{ flex: 1, height: 44 }}
         />
         <button
           onClick={handleSendText}
-          disabled={!canSend || !inputText.trim()}
+          disabled={!inputText.trim()}
           className="btn btn-primary"
           style={{ width: 160 }}
         >
