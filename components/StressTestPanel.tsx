@@ -3,18 +3,6 @@
 import { useState } from "react"
 import { loadConfig } from "@/lib/storage"
 
-type TestResult = {
-  phone: string
-  userName: string
-  message: string
-  status: "pending" | "sent" | "success" | "error" | "no_response"
-  response: string
-  n8nResponse?: string
-  timestamp: string
-  waitTime?: number
-  responseTime?: number
-}
-
 export default function StressTestPanel() {
   const [numUsers, setNumUsers] = useState(100)
   const [messagesPerUser, setMessagesPerUser] = useState(1)
@@ -51,7 +39,7 @@ export default function StressTestPanel() {
   const handleRunTest = async () => {
     const cfg = loadConfig()
     if (!cfg?.webhookUrl?.trim()) {
-      alert("⚠️ Webhook no configurado en la sección de Configuración")
+      alert("⚠️ Webhook not configured in the Configuration section")
       return
     }
     const webhookUrl = cfg.webhookUrl.trim()
@@ -129,7 +117,7 @@ export default function StressTestPanel() {
 
         <div className="space-y-lg">
           <div className="form-group">
-            <label className="form-label">Usuarios</label>
+            <label className="form-label">Users</label>
             <input
               type="number"
               min="1"
@@ -142,7 +130,7 @@ export default function StressTestPanel() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Mensajes por Usuario</label>
+            <label className="form-label">Messages per User</label>
             <input
               type="number"
               min="1"
@@ -155,12 +143,12 @@ export default function StressTestPanel() {
           </div>
 
           <div className="metric-card">
-            <div className="metric-label">Total de Mensajes</div>
+            <div className="metric-label">Total Messages</div>
             <div className="metric-value">{totalMessages.toLocaleString()}</div>
           </div>
 
           <button onClick={handleRunTest} disabled={isLoading} className="btn btn-primary" style={{ width: "100%" }}>
-            {isLoading ? "Ejecutando..." : "Iniciar Test"}
+            {isLoading ? "Running..." : "Start Test"}
           </button>
         </div>
       </div>
@@ -169,19 +157,19 @@ export default function StressTestPanel() {
       {summary && (
         <div className="panel neon-border-warning">
           <div className="panel-header">
-            <h2 className="panel-title">Resultados</h2>
+            <h2 className="panel-title">Results</h2>
           </div>
 
           <div className="space-y-lg">
             <div className="metric-card">
-              <div className="metric-label">Tiempo Total</div>
+              <div className="metric-label">Total Time</div>
               <div className="metric-value">{(summary.duration / 1000).toFixed(2)}s</div>
             </div>
 
             {metrics && (
               <div>
                 <div className="label-text" style={{ marginBottom: "var(--space-md)" }}>
-                  Rangos de tiempo
+                  Time Ranges
                 </div>
                 <div className="grid-3">
                   <div className="metric-card">
@@ -202,15 +190,15 @@ export default function StressTestPanel() {
 
             <div>
               <div className="label-text" style={{ marginBottom: "var(--space-md)" }}>
-                Estados
+                Status
               </div>
               <div className="grid-3">
                 <div className="metric-card">
-                  <div className="metric-label">Éxito</div>
+                  <div className="metric-label">Success</div>
                   <div className="metric-value metric-value-sm">{summary.success}</div>
                 </div>
                 <div className="metric-card">
-                  <div className="metric-label">Errores</div>
+                  <div className="metric-label">Errors</div>
                   <div className="metric-value metric-value-sm">{summary.error}</div>
                 </div>
                 <div className="metric-card">

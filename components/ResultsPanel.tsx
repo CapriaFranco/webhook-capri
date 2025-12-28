@@ -51,9 +51,9 @@ export default function ResultsPanel() {
   return (
     <div className="panel neon-border-neutral">
       <div className="panel-header">
-        <h2 className="panel-title">Detalle de Resultados</h2>
+        <h2 className="panel-title">Results Details</h2>
         <p className="body-text" style={{ marginTop: "var(--space-xs)" }}>
-          {results.length} resultados
+          {results.length} results
         </p>
       </div>
 
@@ -62,19 +62,19 @@ export default function ResultsPanel() {
           <thead>
             <tr>
               <th>ID</th>
-              <th>Usuario</th>
-              <th>Estado</th>
-              <th>Hora</th>
-              <th>Número</th>
-              <th>Tiempo</th>
-              <th>Mensaje</th>
+              <th>User</th>
+              <th>Status</th>
+              <th>Time</th>
+              <th>Phone</th>
+              <th>Duration</th>
+              <th>In.</th>
               <th>Output</th>
             </tr>
           </thead>
           <tbody>
             {results.map((r, i) => (
               <tr key={i}>
-                <td className="mono-text" style={{ width: "60px" }}>{i + 1}</td>
+                <td className="mono-text" style={{ width: "70px" }}>{i + 1}</td>
                 <td style={{ width: "120px" }}>{r.userName}</td>
                 <td style={{ width: "100px" }}>
                   <div
@@ -93,11 +93,11 @@ export default function ResultsPanel() {
                 <td className="mono-text" style={{ width: "100px" }}>{r.timestamp ? new Date(r.timestamp).toLocaleTimeString() : "-"}</td>
                 <td className="mono-text" style={{ width: "140px" }}>{r.phone}</td>
                 <td className="mono-text" style={{ width: "90px" }}>{typeof r.responseTime === "number" ? `${r.responseTime}ms` : "-"}</td>
-                <td style={{ width: "60px", textAlign: "center" }}>
+                <td style={{ width: "50px" }}>
                   <span
                     onMouseEnter={(e) => handleTooltip(e, r.message)}
                     onMouseLeave={handleTooltipHide}
-                    style={{ cursor: "pointer", fontSize: "1.2em" }}
+                    style={{ cursor: "pointer", fontSize: "1.3em" }}
                     title="Ver mensaje enviado"
                   >
                     ⋮
@@ -105,10 +105,10 @@ export default function ResultsPanel() {
                 </td>
                 <td style={{ flex: 1, minWidth: "200px", maxWidth: "400px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: "var(--space-md)" }}>
                   <span
-                    onMouseEnter={(e) => handleTooltip(e, r.n8nResponse || "Sin respuesta")}
+                    onMouseEnter={(e) => handleTooltip(e, r.n8nResponse || "No response")}
                     onMouseLeave={handleTooltipHide}
                     style={{ cursor: "pointer" }}
-                    title="Ver respuesta completa"
+                    title="View full response"
                   >
                     {r.n8nResponse ? r.n8nResponse.substring(0, 60) + (r.n8nResponse.length > 60 ? "..." : "") : "-"}
                   </span>

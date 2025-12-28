@@ -18,7 +18,7 @@ export default function TopToolbar() {
   return (
     <div className="toolbar">
       <div className="toolbar-group">
-        <label className="label-text">desde</label>
+        <label className="label-text">From</label>
         <input
           className="input"
           style={{ width: "200px" }}
@@ -31,7 +31,7 @@ export default function TopToolbar() {
       <div className="toolbar-separator" />
 
       <div className="toolbar-group">
-        <label className="label-text">hasta</label>
+        <label className="label-text">To</label>
         <input
           className="input"
           style={{ width: "200px" }}
@@ -43,31 +43,34 @@ export default function TopToolbar() {
 
       <div className="toolbar-separator" />
 
-      <button
-        className="btn btn-danger"
-        onClick={() => {
-          if (!confirm("This will clear the entire database. Are you sure?")) return
-          try {
-            window.dispatchEvent(new CustomEvent("clear-all-db"))
-          } catch {
-          }
-        }}
-      >
-        Clear All DB
-      </button>
+      <div className="toolbar-group" style={{ display: "flex", gap: "var(--space-md)" }}>
+        <button
+          className="btn btn-danger-dark"
+          onClick={() => {
+            if (!confirm("This will clear the entire database. Are you sure?")) return
+            try {
+              window.dispatchEvent(new CustomEvent("clear-all-db"))
+            } catch {
+            }
+          }}
+        >
+          Clear Database
+        </button>
 
-      <button
-        className="btn btn-ghost"
-        style={{ marginLeft: "auto" }}
-        onClick={() => {
-          try {
-            window.dispatchEvent(new CustomEvent("clear-chat"))
-          } catch {
-          }
-        }}
-      >
-        clear chat
-      </button>
+        <div className="toolbar-separator" />
+
+        <button
+          className="btn btn-danger"
+          onClick={() => {
+            try {
+              window.dispatchEvent(new CustomEvent("clear-chat"))
+            } catch {
+            }
+          }}
+        >
+          Clear Chat
+        </button>
+      </div>
     </div>
   )
 }

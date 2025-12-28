@@ -20,16 +20,13 @@ type StoredMessage = Message & {
 export default function ChatInterface() {
   const [allMessages, setAllMessages] = useState<StoredMessage[]>([])
   const [inputText, setInputText] = useState("")
-  const [config, setConfig] = useState<StoredConfig | null>(null)
+  const [config, setConfig] = useState<StoredConfig | null>(() => loadConfig())
   const [startDate, setStartDate] = useState<string>("")
   const [endDate, setEndDate] = useState<string>("")
   const unsubscribeRef = useRef<Unsubscribe | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const c = loadConfig()
-    setConfig(c)
-
     const onCfg = () => setConfig(loadConfig())
     window.addEventListener("whatsapp-config-updated", onCfg)
     return () => window.removeEventListener("whatsapp-config-updated", onCfg)
@@ -38,14 +35,14 @@ export default function ChatInterface() {
   // Clear chat handler (moved up so effects can reference it)
   const handleClearChat = useCallback(async () => {
     if (!config?.phone) return
-    if (!window.confirm("¿Estás seguro de que quieres borrar todos los mensajes de este número?")) return
+    if (!window.confirm("Are you sure you want to delete all messages from this number?")) return
     try {
       await clearPhoneMessages(config.phone)
       setAllMessages([])
     } catch (err) {
       console.error("Error clearing messages:", err)
     }
-  }, [config?.phone])
+  }, [config])
 
   // Listen to toolbar and stress-test events
   useEffect(() => {
@@ -155,7 +152,7 @@ export default function ChatInterface() {
       <div ref={containerRef} className="chat-messages">
         {messages.length === 0 ? (
           <div className="text-secondary" style={{ textAlign: "center", padding: "var(--space-3xl) 0" }}>
-            No hay mensajes
+            No messages
           </div>
         ) : (
           <div className="space-y-md">
@@ -181,15 +178,15 @@ export default function ChatInterface() {
 
       {/* Small inline status info below chat (subtle) */}
       <div style={{ marginTop: "var(--space-sm)", fontSize: "var(--text-xs)", color: "var(--text-tertiary)" }}>
-        <span style={{ marginRight: "var(--space-md)", marginLeft: "var(--space-xl)" }}>Estado:</span>
+        <span style={{ marginRight: "var(--space-md)", marginLeft: "var(--space-xl)" }}>Status:</span>
         <span style={{ marginRight: "var(--space-sm)", display: "inline-flex", alignItems: "center" }}>
-          <span className="status-indicator status-danger"><span className="status-dot"></span><span style={{ marginLeft: "6px" }}>Fallo</span></span>
+          <span className="status-indicator status-danger"><span className="status-dot"></span><span style={{ marginLeft: "6px" }}>Error</span></span>
         </span>
         <span style={{ marginRight: "var(--space-sm)", display: "inline-flex", alignItems: "center" }}>
-          <span className="status-indicator status-warning"><span className="status-dot"></span><span style={{ marginLeft: "6px" }}>En espera</span></span>
+          <span className="status-indicator status-warning"><span className="status-dot"></span><span style={{ marginLeft: "6px" }}>Waiting</span></span>
         </span>
         <span style={{ display: "inline-flex", alignItems: "center" }}>
-          <span className="status-indicator status-success"><span className="status-dot"></span><span style={{ marginLeft: "6px" }}>Recibido</span></span>
+          <span className="status-indicator status-success"><span className="status-dot"></span><span style={{ marginLeft: "6px" }}>Received</span></span>
         </span>
       </div>
 
@@ -200,7 +197,7 @@ export default function ChatInterface() {
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSendText()}
-          placeholder="Escribe un mensaje..."
+          placeholder="Type a message..."
           className="input"
           disabled={!canSend}
           style={{ flex: 1, height: 44 }}
@@ -211,7 +208,7 @@ export default function ChatInterface() {
           className="btn btn-primary"
           style={{ width: 160 }}
         >
-          Enviar
+          Send
         </button>
       </div>
     </div>

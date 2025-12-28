@@ -405,6 +405,18 @@ body {
   color: var(--text-inverse);
 }
 
+/* Danger Dark Button - Darker Red */
+.btn-danger-dark {
+  background: transparent;
+  color: #a71010;
+  border: 1px solid #a71010;
+}
+
+.btn-danger-dark:hover:not(:disabled) {
+  background: #a71010;
+  color: var(--text-inverse);
+}
+
 /* Ghost Button */
 .btn-ghost {
   background: transparent;

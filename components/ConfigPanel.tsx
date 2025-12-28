@@ -4,7 +4,6 @@ import { useEffect, useState } from "react"
 import { saveConfig, loadConfig } from "@/lib/storage"
 
 export default function ConfigPanel() {
-  const [mounted, setMounted] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState<string>(() => {
     try {
       const c = typeof window !== 'undefined' ? loadConfig() : null;
@@ -32,9 +31,6 @@ export default function ConfigPanel() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    // mark mounted; initial values were set in state initializers
-    setMounted(true)
-
     const onUpdated = () => {
       const c = loadConfig()
       setWebhookUrl(c?.webhookUrl ?? "")
@@ -51,23 +47,15 @@ export default function ConfigPanel() {
     setTimeout(() => setSaved(false), 2000)
   }
 
-  if (!mounted) {
-    return (
-      <div className="panel neon-border-neutral">
-        <div className="panel-title">Configuración</div>
-      </div>
-    )
-  }
-
   return (
     <div className="panel neon-border-neutral">
       <div className="panel-header">
-        <h2 className="panel-title">Configuración</h2>
+        <h2 className="panel-title">Configuration</h2>
       </div>
 
       <div className="space-y-lg">
         <div className="form-group">
-          <label className="form-label">URL Webhook</label>
+          <label className="form-label">Webhook URL</label>
           <input
             type="text"
             value={webhookUrl}
@@ -78,7 +66,7 @@ export default function ConfigPanel() {
         </div>
 
         <div className="form-group">
-          <label className="form-label">Número</label>
+          <label className="form-label">Phone Number</label>
           <input
             type="text"
             value={phone}
@@ -89,18 +77,18 @@ export default function ConfigPanel() {
         </div>
 
         <div className="form-group">
-          <label className="form-label">Nombre Usuario</label>
+          <label className="form-label">User Name</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Usuario"
+            placeholder="User"
             className="input"
           />
         </div>
 
         <button onClick={save} className="btn btn-secondary" style={{ width: "100%" }}>
-          {saved ? "✓ Guardado" : "Guardar"}
+          {saved ? "✓ Saved" : "Save"}
         </button>
       </div>
     </div>
