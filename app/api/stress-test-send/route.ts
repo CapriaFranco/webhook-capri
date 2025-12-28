@@ -6,6 +6,8 @@ type MessageUpdate = {
   phone: string;
   timestamp: string;
   direction: 'inbound' | 'outbound';
+  sentAt?: number; // Timestamp en ms cuando se envió (para calcular response time)
+  receivedAt?: number; // Timestamp en ms cuando se recibió la respuesta
 };
 
 type TestResult = {
@@ -17,6 +19,7 @@ type TestResult = {
   n8nResponse?: string;
   timestamp: string;
   waitTime: number;
+  responseTime?: number; // Tiempo que tardó n8n en responder (desde que se envió)
 };
 
 /**
@@ -141,6 +144,8 @@ export async function POST(req: NextRequest) {
     
     // Track phones sent to match with responses from n8n
     const phonesSent = new Set<string>();
+    // Mapa de phone -> datos del mensaje outbound (para calcular responseTime)
+    const phoneOutboundData: Record<string, { sentAt: number }> = {};
 
     for (let u = 0; u < numUsers; u++) {
       const phone = generatePhoneNumber();
@@ -150,6 +155,10 @@ export async function POST(req: NextRequest) {
       for (let m = 0; m < messagesPerUser; m++) {
         const message = sampleMessages[m % sampleMessages.length];
         const timestamp = new Date().toISOString();
+        const sentAt = Date.now(); // Timestamp en ms del envío
+        
+        // Guardar info del outbound para calcular responseTime después
+        phoneOutboundData[phone] = { sentAt };
         
         // Construir payload en formato WhatsApp API / 360dialog
         const payload = buildWhatsAppPayload(phone, userName, message);
@@ -162,6 +171,7 @@ export async function POST(req: NextRequest) {
             phone,
             timestamp,
             direction: 'outbound',
+            sentAt, // Guardar timestamp de envío
           };
         }
 
@@ -172,23 +182,34 @@ export async function POST(req: NextRequest) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
           });
-          const respText = await resp.text();
-          const waitTime = Date.now() - startReq;
           
-          // NO contar como éxito/error aquí - solo es confirmación de recepción
-          // El status real se determinará después basado en respuesta del flujo
-          results.push({
-            phone,
-            userName,
-            message,
-            status: 'pending', // Pendiente hasta que llegue respuesta real del flujo
-            response: respText, // Mostrar respuesta HTTP inmediata pero no usar para contar
-            timestamp,
-            waitTime,
-          });
+          // NO guardar respuesta HTTP - es solo confirmación de recepción
+          // Solo importante que el POST se haya enviado exitosamente
+          if (!resp.ok) {
+            errorCount++;
+            results.push({
+              phone,
+              userName,
+              message,
+              status: 'error',
+              response: `HTTP ${resp.status}`,
+              timestamp,
+              waitTime: Date.now() - startReq,
+            });
+          } else {
+            // Enviado correctamente, pendiente de respuesta del flujo
+            results.push({
+              phone,
+              userName,
+              message,
+              status: 'pending',
+              response: '',
+              timestamp,
+              waitTime: Date.now() - startReq,
+            });
+          }
         } catch (e) {
-          const waitTime = Date.now() - startReq;
-          // Error en envío del webhook mismo
+          errorCount++;
           results.push({
             phone,
             userName,
@@ -196,9 +217,8 @@ export async function POST(req: NextRequest) {
             status: 'error',
             response: e instanceof Error ? e.message : String(e),
             timestamp,
-            waitTime,
+            waitTime: Date.now() - startReq,
           });
-          errorCount++;
         }
         totalSent++;
       }
@@ -219,10 +239,13 @@ export async function POST(req: NextRequest) {
       if (snapshot.exists()) {
         const allMessages = snapshot.val() as Record<string, MessageUpdate>;
         const inboundResponses: Record<string, MessageUpdate> = {};
+        const outboundMessages: Record<string, MessageUpdate> = {}; // Para obtener sentAt
         
         for (const [, msg] of Object.entries(allMessages)) {
           if (msg.direction === 'inbound' && phonesSent.has(msg.phone)) {
             inboundResponses[msg.phone] = msg;
+          } else if (msg.direction === 'outbound' && phonesSent.has(msg.phone)) {
+            outboundMessages[msg.phone] = msg;
           }
         }
         
@@ -236,6 +259,12 @@ export async function POST(req: NextRequest) {
           
           if (inboundResponses[result.phone]) {
             result.n8nResponse = inboundResponses[result.phone].message;
+            // Calcular tiempo de respuesta: diferencia entre receivedAt (cuando llegó) y sentAt (cuando se envió)
+            const outboundMsg = outboundMessages[result.phone];
+            const inboundMsg = inboundResponses[result.phone];
+            if (outboundMsg?.sentAt && inboundMsg?.receivedAt) {
+              result.responseTime = inboundMsg.receivedAt - outboundMsg.sentAt;
+            }
             // Determinar si fue éxito o error basado en el contenido de la respuesta
             const responseMsg = inboundResponses[result.phone].message.toLowerCase();
             if (responseMsg.includes('error') || responseMsg.includes('fail')) {
@@ -244,7 +273,7 @@ export async function POST(req: NextRequest) {
               result.status = 'success';
               successCount++;
             }
-            console.log(`[stress-test] Actualizado ${result.phone}: ${result.status} - ${inboundResponses[result.phone].message}`);
+            console.log(`[stress-test] Actualizado ${result.phone}: ${result.status} - ${result.responseTime}ms - ${inboundResponses[result.phone].message}`);
           } else {
             // No llegó respuesta del flujo después de esperar
             result.status = 'no_response';
@@ -256,12 +285,38 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Calcular métricas de timing
+    const metrics = {
+      lessThan1s: 0,
+      lessThan5s: 0,
+      moreThan5s: 0,
+      noResponse: 0,
+      errors: 0,
+    };
+
+    for (const result of results) {
+      if (result.status === 'error') {
+        metrics.errors++;
+      } else if (result.status === 'no_response') {
+        metrics.noResponse++;
+      } else if (result.status === 'success' && result.responseTime !== undefined) {
+        if (result.responseTime < 1000) {
+          metrics.lessThan1s++;
+        } else if (result.responseTime < 5000) {
+          metrics.lessThan5s++;
+        } else {
+          metrics.moreThan5s++;
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       totalSent,
       successCount,
       errorCount,
       duration: Date.now() - startTime,
+      metrics,
       results,
       note: waitForResponses ? `Esperó ${waitMs}ms por respuestas desde n8n` : 'Sin espera por respuestas',
     });

@@ -11,15 +11,19 @@ export default function Home() {
           <div className="text-sm text-gray-600">Prueba flujos de n8n sin WhatsApp real</div>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-1 space-y-6">
+        <div className="grid gap-6 lg:grid-cols-4">
+          <div className="lg:col-span-1">
             <ConfigPanel />
-            <StressTestPanel />
           </div>
 
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             <ChatInterface />
           </div>
+        </div>
+
+        {/* Stress Test Panel - Full width below */}
+        <div className="mt-6">
+          <StressTestPanel />
         </div>
       </div>
     </div>

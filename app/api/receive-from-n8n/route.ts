@@ -119,16 +119,18 @@ export async function POST(request: NextRequest) {
     try {
       const db = getAdminDatabase();
       const timestamp = new Date().toISOString();
+      const receivedAt = Date.now(); // Timestamp en ms para calcular responseTime
       const messageData = {
         message,
         phone,
         timestamp,
         direction: 'inbound',
+        receivedAt, // Timestamp en ms
       };
 
       const messagesRef = db.ref('messages');
       await messagesRef.push(messageData);
-      console.log('[receive-from-n8n] ✅ GUARDADO EN FIREBASE:', { message, phone, timestamp });
+      console.log('[receive-from-n8n] ✅ GUARDADO EN FIREBASE:', { message, phone, timestamp, receivedAt });
 
       console.log('[receive-from-n8n] SUCCESS: Stored message for', phone);
       return NextResponse.json({ success: true });

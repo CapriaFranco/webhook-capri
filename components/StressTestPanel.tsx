@@ -11,6 +11,7 @@ type TestResult = {
   n8nResponse?: string; // Respuesta del flujo n8n si la hay
   timestamp: string;
   waitTime?: number; // ms que tardó la petición al webhook
+  responseTime?: number; // Tiempo total desde envío hasta respuesta
 };
 
 export default function StressTestPanel() {
@@ -24,6 +25,13 @@ export default function StressTestPanel() {
     success: number;
     error: number;
     duration: number;
+  } | null>(null);
+  const [metrics, setMetrics] = useState<{
+    lessThan1s: number;
+    lessThan5s: number;
+    moreThan5s: number;
+    noResponse: number;
+    errors: number;
   } | null>(null);
 
   const handleNumUsersChange = (value: string) => {
@@ -49,6 +57,7 @@ export default function StressTestPanel() {
     setIsLoading(true);
     setResults([]);
     setSummary(null);
+    setMetrics(null);
 
     try {
       const startTime = Date.now();
@@ -75,6 +84,7 @@ export default function StressTestPanel() {
           error: data.errorCount,
           duration,
         });
+        setMetrics(data.metrics || null);
       } else {
         alert(`❌ Error: ${data.error}`);
       }
@@ -97,7 +107,9 @@ export default function StressTestPanel() {
     <div className="rounded-lg border border-orange-300 bg-orange-50 p-6">
       <h3 className="mb-4 text-lg font-semibold text-orange-900">🧪 Prueba de Estrés</h3>
 
-      <div className="space-y-4">
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Inputs - Left column */}
+        <div className="space-y-4">
         {/* Webhook URL */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -161,130 +173,180 @@ export default function StressTestPanel() {
         >
           {isLoading ? 'Enviando pruebas...' : '▶️ Ejecutar Prueba'}
         </button>
+        </div>
 
-        {/* Resumen de resultados */}
-        {summary && (
-          <div className="rounded-lg border border-blue-300 bg-blue-50 p-4">
-            <div className="font-semibold text-blue-900">📊 Resultados</div>
-            <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
-              <div>
-                <div className="text-gray-600">Total enviados</div>
-                <div className="text-xl font-bold text-blue-600">{summary.total}</div>
+        {/* Métricas - Right column */}
+        <div>
+          {summary && (
+            <div className="rounded-lg border border-blue-300 bg-blue-50 p-4 space-y-3">
+              <div className="font-semibold text-blue-900 mb-4">📊 Resultados</div>
+              
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded bg-white p-2 text-center">
+                  <div className="text-xs text-gray-600">Total</div>
+                  <div className="text-lg font-bold text-blue-600">{summary.total}</div>
+                </div>
+                <div className="rounded bg-white p-2 text-center">
+                  <div className="text-xs text-gray-600">Duración</div>
+                  <div className="text-lg font-bold text-blue-600">{(summary.duration / 1000).toFixed(1)}s</div>
+                </div>
               </div>
-              <div>
-                <div className="text-gray-600">✅ Exitosos</div>
-                <div className="text-xl font-bold text-green-600">{summary.success}</div>
-              </div>
-              <div>
-                <div className="text-gray-600">❌ Errores</div>
-                <div className="text-xl font-bold text-red-600">{summary.error}</div>
+
+              {/* Response Timing Metrics */}
+              {metrics && (
+                <div className="space-y-2 border-t pt-3">
+                  <div className="text-sm font-semibold text-blue-900">⏱️ Tiempos de Respuesta:</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded bg-green-100 p-2">
+                      <div className="text-xs text-green-700">
+                        <span className="font-bold">{metrics.lessThan1s}</span> en &lt;1s
+                      </div>
+                    </div>
+                    <div className="rounded bg-blue-100 p-2">
+                      <div className="text-xs text-blue-700">
+                        <span className="font-bold">{metrics.lessThan5s}</span> en &lt;5s
+                      </div>
+                    </div>
+                    <div className="rounded bg-yellow-100 p-2">
+                      <div className="text-xs text-yellow-700">
+                        <span className="font-bold">{metrics.moreThan5s}</span> en &gt;5s
+                      </div>
+                    </div>
+                    <div className="rounded bg-orange-100 p-2">
+                      <div className="text-xs text-orange-700">
+                        <span className="font-bold">{metrics.noResponse}</span> Sin respuesta
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Error Summary */}
+              <div className="border-t pt-3 space-y-2">
+                <div className="text-sm font-semibold text-blue-900">✅ Estado:</div>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="rounded bg-green-100 p-2 text-center">
+                    <div className="text-green-700">
+                      <span className="font-bold text-lg">{summary.success}</span>
+                      <div>Éxito</div>
+                    </div>
+                  </div>
+                  <div className="rounded bg-red-100 p-2 text-center">
+                    <div className="text-red-700">
+                      <span className="font-bold text-lg">{summary.error}</span>
+                      <div>Error</div>
+                    </div>
+                  </div>
+                  <div className="rounded bg-gray-100 p-2 text-center">
+                    <div className="text-gray-700">
+                      <span className="font-bold text-lg">{(metrics?.noResponse || 0)}</span>
+                      <div>Sin resp.</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="mt-2 text-xs text-gray-600">
-              ⏱️ Duración: {(summary.duration / 1000).toFixed(2)}s
-            </div>
-          </div>
-        )}
-
-        {/* Info */}
-        <div className="rounded bg-blue-50 p-3 text-xs text-blue-800">
-          <strong>💡 Info:</strong> Envía mensajes reales con números aleatorios al webhook de n8n. Verás los
-          resultados en el panel de Executions de n8n.
+          )}
         </div>
       </div>
 
-      {/* Lista de resultados (compacta) */}
-      {results.length > 0 && (
-        <div className="mt-6">
-          <h4 className="mb-3 font-semibold text-gray-800">📋 Detalle de envíos (página {page + 1}/{totalPages}):</h4>
-          <div className="max-h-96 space-y-1 overflow-y-auto">
-            {pagedResults.map((result, idx) => (
-              <div
-                key={idx}
-                className="rounded border border-gray-200 bg-white px-3 py-2 text-xs font-mono"
-              >
-                <div className="flex gap-3">
-                  <div className="w-24">
-                    <span className="font-semibold">Número:</span> {result.phone}
-                  </div>
-                  <div className="flex-1">
-                    <span className="font-semibold">Usuario:</span> {result.userName}
-                  </div>
-                  <div className="flex-1">
-                    <span className="font-semibold">Mensaje:</span> &quot;{result.message.substring(0, 30)}&hellip;&quot;
-                  </div>
-                  <div>
-                    <span
-                      className={`inline-block h-2 w-2 rounded-full ${
-                        result.status === 'success'
-                          ? 'bg-green-500'
-                          : result.status === 'error'
-                            ? 'bg-red-500'
-                            : result.status === 'no_response'
-                              ? 'bg-orange-500'
-                              : 'bg-yellow-500'
-                      }`}
-                    ></span>
-                    <span className="ml-1 font-semibold text-xs">
-                      {result.status === 'success'
-                        ? '✅ Éxito'
-                        : result.status === 'error'
-                          ? '❌ Error'
-                          : result.status === 'no_response'
-                            ? '⚠️ Sin respuesta'
-                            : '⏳ Pendiente'}
-                    </span>
-                  </div>
-                </div>
-                {result.response && (
-                  <div className="mt-2 bg-gray-100 rounded p-2 text-xs border border-gray-300">
-                    <div className="font-semibold text-gray-600 mb-1">📨 Confirmación de recepción (NO cuenta para éxito/error):</div>
-                    <pre className="text-gray-700 whitespace-pre-wrap break-words overflow-auto max-h-32 text-xs">
-                      {result.response}
-                    </pre>
-                  </div>
-                )}
-                {result.n8nResponse ? (
-                  <div className="mt-2 bg-blue-50 rounded p-2 text-xs border border-blue-200">
-                    <div className="font-semibold text-blue-700 mb-1">✅ Respuesta real del flujo n8n:</div>
-                    <pre className="text-blue-700 whitespace-pre-wrap break-words overflow-auto max-h-32 text-xs">
-                      {result.n8nResponse}
-                    </pre>
-                  </div>
-                ) : result.status === 'no_response' ? (
-                  <div className="mt-2 bg-orange-50 rounded p-2 text-xs border border-orange-200">
-                    <div className="font-semibold text-orange-600 mb-1">⚠️ No se recibió respuesta del flujo n8n</div>
-                    <p className="text-orange-700">El flujo n8n no devolvió respuesta después de esperar {5} segundos</p>
-                  </div>
-                ) : null}
-                {typeof result.waitTime === 'number' && (
-                  <div className="mt-1 text-gray-500 text-xs">
-                    ⏱️ Tiempo de envío al webhook: {result.waitTime} ms
-                  </div>
-                )}
-              </div>
-            ))}
-            {/* Pagination controls */}
-            <div className="flex justify-between py-2 text-xs text-gray-600">
-              <button
-                disabled={page === 0}
-                onClick={() => setPage((p) => Math.max(p - 1, 0))}
-                className="rounded bg-gray-200 px-2 py-1 disabled:opacity-50"
-              >
-                ← Anterior
-              </button>
-              <span>
-                Página {page + 1} de {totalPages}
-              </span>
-              <button
-                disabled={page + 1 >= totalPages}
-                onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
-                className="rounded bg-gray-200 px-2 py-1 disabled:opacity-50"
-              >
-                Siguiente →
-              </button>
-            </div>
+      {/* Resultados detallados - Full width below */}
+      {summary && (
+        <div className="mt-6 space-y-4">
+          <div className="font-semibold text-lg text-gray-900">📋 Detalles de Resultados</div>
+          
+          <div className="rounded bg-blue-50 p-3 text-xs text-blue-800">
+            <strong>💡 Info:</strong> Envía mensajes reales con números aleatorios al webhook de n8n. Verás los
+            resultados en el panel de Executions de n8n.
           </div>
+
+          {/* Lista de resultados con paginación */}
+          {results.length > 0 && (
+            <div className="mt-4 space-y-3">
+              <h5 className="font-semibold text-gray-800">Detalle de envíos (página {page + 1}/{totalPages}):</h5>
+              <div className="max-h-96 space-y-1 overflow-y-auto rounded border border-gray-200 bg-white p-2">
+                {pagedResults.map((result, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded border border-gray-200 bg-white px-3 py-2 text-xs font-mono"
+                  >
+                    <div className="flex gap-3">
+                      <div className="w-24">
+                        <span className="font-semibold">Número:</span> {result.phone}
+                      </div>
+                      <div className="flex-1">
+                        <span className="font-semibold">Usuario:</span> {result.userName}
+                      </div>
+                      <div className="flex-1">
+                        <span className="font-semibold">Mensaje:</span> &quot;{result.message.substring(0, 30)}&hellip;&quot;
+                      </div>
+                      <div>
+                        <span
+                          className={`inline-block h-2 w-2 rounded-full ${
+                            result.status === 'success'
+                              ? 'bg-green-500'
+                              : result.status === 'error'
+                                ? 'bg-red-500'
+                                : result.status === 'no_response'
+                                  ? 'bg-orange-500'
+                                  : 'bg-yellow-500'
+                          }`}
+                        ></span>
+                        <span className="ml-1 font-semibold text-xs">
+                          {result.status === 'success'
+                            ? '✅ Éxito'
+                            : result.status === 'error'
+                              ? '❌ Error'
+                              : result.status === 'no_response'
+                                ? '⚠️ Sin respuesta'
+                                : '⏳ Pendiente'}
+                        </span>
+                      </div>
+                    </div>
+                    {result.n8nResponse ? (
+                      <div className="mt-2 bg-blue-50 rounded p-2 text-xs border border-blue-200">
+                        <div className="font-semibold text-blue-700 mb-1">✅ Respuesta del flujo n8n:</div>
+                        <pre className="text-blue-700 whitespace-pre-wrap break-words overflow-auto max-h-32 text-xs">
+                          {result.n8nResponse}
+                        </pre>
+                      </div>
+                    ) : result.status === 'no_response' ? (
+                      <div className="mt-2 bg-orange-50 rounded p-2 text-xs border border-orange-200">
+                        <div className="font-semibold text-orange-600 mb-1">⚠️ No se recibió respuesta del flujo n8n</div>
+                        <p className="text-orange-700">El flujo n8n no devolvió respuesta después de esperar 5 segundos</p>
+                      </div>
+                    ) : null}
+                    {typeof result.responseTime === 'number' && (
+                      <div className="mt-1 text-gray-500 text-xs">
+                        ⏱️ Tiempo de respuesta: {result.responseTime} ms
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {/* Pagination controls */}
+                <div className="flex justify-between py-2 text-xs text-gray-600 border-t">
+                  <button
+                    disabled={page === 0}
+                    onClick={() => setPage((p) => Math.max(p - 1, 0))}
+                    className="rounded bg-gray-200 px-2 py-1 disabled:opacity-50"
+                  >
+                    ← Anterior
+                  </button>
+                  <span>
+                    Página {page + 1} de {totalPages}
+                  </span>
+                  <button
+                    disabled={page + 1 >= totalPages}
+                    onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
+                    className="rounded bg-gray-200 px-2 py-1 disabled:opacity-50"
+                  >
+                    Siguiente →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
