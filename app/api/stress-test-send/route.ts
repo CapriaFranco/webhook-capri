@@ -183,8 +183,7 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify(payload),
           });
           
-          // NO guardar respuesta HTTP - es solo confirmación de recepción
-          // Solo importante que el POST se haya enviado exitosamente
+          // Verificar si la respuesta HTTP fue exitosa (2xx)
           if (!resp.ok) {
             errorCount++;
             results.push({
@@ -192,10 +191,11 @@ export async function POST(req: NextRequest) {
               userName,
               message,
               status: 'error',
-              response: `HTTP ${resp.status}`,
+              response: `HTTP ${resp.status}: ${resp.statusText}`,
               timestamp,
               waitTime: Date.now() - startReq,
             });
+            console.log(`[stress-test] Error enviando a ${webhookUrl}: HTTP ${resp.status}`);
           } else {
             // Enviado correctamente, pendiente de respuesta del flujo
             results.push({
@@ -219,6 +219,7 @@ export async function POST(req: NextRequest) {
             timestamp,
             waitTime: Date.now() - startReq,
           });
+          console.error(`[stress-test] Error de red/conexión al enviar a ${webhookUrl}: ${e instanceof Error ? e.message : String(e)}`);
         }
         totalSent++;
       }
