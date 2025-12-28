@@ -86,7 +86,7 @@ input::placeholder, textarea::placeholder{ color: rgba(255,255,255,0.35); }
 .text-ghost{ color: rgba(255,255,255,0.85); }
 
 /* Results list */
-.results-list{ max-height: 320px; overflow:auto; border-radius:8px; }
+.results-list{ border-radius:8px; }
 .result-item{ background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.03); padding:10px; border-radius:8px; }
 
 /* Responsive adjustments */

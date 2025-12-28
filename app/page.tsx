@@ -12,12 +12,12 @@ export default function Home() {
         </header>
 
         <main className="app-grid">
-          <section>
+          <section className="space-y-6">
             <ChatInterface />
+            <StressTestPanel />
           </section>
 
-          <aside className="space-y-6">
-            <StressTestPanel />
+          <aside>
             <ConfigPanel />
           </aside>
         </main>
