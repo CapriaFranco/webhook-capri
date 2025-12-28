@@ -1,7 +1,8 @@
-'use client';
+ 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadConfig } from '@/lib/storage';
+import { Send, Clock, CheckCircle, XCircle, Trash2 } from '@/components/Icons';
 import type { StoredConfig } from '@/lib/storage';
 import {
   subscribeToPhoneMessages,
@@ -151,14 +152,16 @@ export default function ChatInterface() {
   };
 
   return (
-    <div className="flex h-[600px] flex-col overflow-hidden rounded-lg border bg-white shadow-sm">
-      <div className="bg-green-600 p-4 text-white">
-        <div className="text-lg font-semibold">Simulador WhatsApp</div>
-        <div className="text-sm opacity-90">{headerSubtitle}</div>
+    <div className="flex flex-col min-h-[520px] overflow-hidden rounded-lg panel neon-border-strong">
+      <div className="p-4">
+        <div className="flex items-center gap-3">
+          <div className="text-lg card-title flex items-center"><Send className="mr-2" size={18} />Simulador WhatsApp</div>
+        </div>
+        <div className="small-muted">{headerSubtitle}</div>
       </div>
 
       {/* Filtro de fechas */}
-      <div className="border-b bg-gray-50 p-3">
+      <div className="border-b border-white/5 p-3">
         <div className="flex gap-2">
           <div className="flex-1">
             <label className="block text-xs font-medium text-gray-700">Desde:</label>
@@ -190,21 +193,25 @@ export default function ChatInterface() {
         </div>
       </div>
 
-      <div ref={containerRef} className="flex-1 space-y-2 overflow-y-auto bg-gray-50 p-4">
+      <div ref={containerRef} className="flex-1 space-y-2 overflow-y-auto p-4">
         {messages.length === 0 ? (
-          <div className="mt-10 text-center text-gray-400">No hay mensajes. Envía uno para probar.</div>
+          <div className="mt-10 text-center small-muted">No hay mensajes. Envía uno para probar.</div>
         ) : (
           messages.map((msg) => (
             <div key={msg.id} className={msg.direction === 'outbound' ? 'flex justify-end' : 'flex justify-start'}>
-              <div
-                className={`max-w-xs rounded-lg p-3 ${msg.direction === 'outbound' ? 'bg-green-100' : 'bg-white'}`}
-              >
+              <div className={`max-w-xs rounded-lg p-3 ${msg.direction === 'outbound' ? 'bg-white/5' : 'bg-white/3'}`}>
                 <p className="text-sm">{msg.message}</p>
-                <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                <div className="mt-1 flex items-center gap-2 text-xs muted">
                   {new Date(msg.timestamp).toLocaleTimeString()}
-                  {msg.direction === 'outbound' && msg.status === 'sending' && ' Enviando...'}
-                  {msg.direction === 'outbound' && msg.status === 'sent' && ' ✓✓'}
-                  {msg.direction === 'outbound' && msg.status === 'error' && ' ❌'}
+                  {msg.direction === 'outbound' && msg.status === 'sending' && (
+                    <span className="ml-2 text-xs muted"><Clock className="inline-block mr-1" size={12} />Enviando...</span>
+                  )}
+                  {msg.direction === 'outbound' && msg.status === 'sent' && (
+                    <span className="ml-2 text-xs muted"><CheckCircle className="inline-block mr-1 text-green-400" size={12} />Enviado</span>
+                  )}
+                  {msg.direction === 'outbound' && msg.status === 'error' && (
+                    <span className="ml-2 text-xs muted"><XCircle className="inline-block mr-1 text-red-400" size={12} />Error</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -212,7 +219,7 @@ export default function ChatInterface() {
         )}
       </div>
 
-      <div className="border-t bg-gray-100 p-4 space-y-2">
+      <div className="border-t border-white/5 p-4 space-y-2">
         <div className="flex gap-2">
           <input
             type="text"
@@ -226,23 +233,24 @@ export default function ChatInterface() {
           <button
             onClick={handleSendText}
             disabled={!canSend}
-            className="rounded bg-green-600 px-6 py-2 font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded btn-primary px-6 py-2 font-medium hover:brightness-105 disabled:opacity-50 flex items-center gap-2"
           >
-            Enviar
+            <Send size={16} />
+            <span>Enviar</span>
           </button>
           <button
             onClick={handleClearChat}
-            className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            className="rounded btn-danger px-4 py-2 text-sm font-medium"
             title="Borrar mensajes de este número"
           >
-            🗑️ Limpiar
+            <span className="flex items-center gap-2"><Trash2 size={14} />Limpiar</span>
           </button>
           <button
             onClick={handleClearAllExcept}
-            className="rounded bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700"
+            className="rounded bg-white/5 px-4 py-2 text-sm font-medium"
             title="Borrar TODO menos este número"
           >
-            🧹 Limpiar Todo
+            <span className="flex items-center gap-2"><Trash2 size={14} />Limpiar Todo</span>
           </button>
         </div>
         {!canSend && <div className="text-xs text-gray-600">Configura el webhook para habilitar el envío.</div>}

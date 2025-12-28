@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { saveConfig, loadConfig } from "@/lib/storage";
+import { Settings, CheckCircle } from '@/components/Icons';
 
 export default function ConfigPanel() {
   const [mounted, setMounted] = useState(false);
@@ -39,40 +40,33 @@ export default function ConfigPanel() {
   // No renderizar hasta que esté montado en cliente (evita hydration mismatch)
   if (!mounted) {
     return (
-      <div className="rounded-lg border bg-white p-4 shadow-sm">
+      <div className="rounded-lg panel p-4">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">Configuración</h2>
-          <div className="rounded-full px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600">
-            Cargando...
-          </div>
+          <h2 className="text-lg card-title"><Settings className="inline-block mr-2" size={16} />Configuración</h2>
+          <div className="rounded-full px-2 py-1 text-xs font-medium bg-white/5 muted">Cargando...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border bg-white p-4 shadow-sm">
+    <div className="rounded-lg panel p-4 neon-border-strong">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold">Configuración</h2>
-        <div
-          className={
-            "rounded-full px-2 py-1 text-xs font-medium " +
-            (isWebhookConfigured ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600")
-          }
-        >
-          {isWebhookConfigured ? "✓ Configuración guardada" : "Webhook no configurado"}
+        <h2 className="text-lg font-semibold"><Settings className="inline-block mr-2" size={16} />Configuración</h2>
+        <div className={"rounded-full px-2 py-1 text-xs font-medium " + (isWebhookConfigured ? "bg-white/5 text-accent" : "bg-white/5 muted")}>
+          {isWebhookConfigured ? (<span className="flex items-center gap-2"><CheckCircle size={14} />Configuración guardada</span>) : "Webhook no configurado"}
         </div>
       </div>
 
       <div className="space-y-3">
         <div>
-          <label className="mb-1 block text-sm font-medium">URL del Webhook n8n</label>
+          <label className="mb-1 block text-sm small-muted">URL del Webhook n8n</label>
           <input
             type="text"
             value={webhookUrl}
             onChange={(e) => setWebhookUrl(e.target.value)}
             placeholder="https://tu-instancia.app.n8n.cloud/webhook/..."
-            className="w-full rounded border p-2"
+            className="w-full rounded p-2 bg-transparent border border-white/5"
           />
         </div>
 
@@ -100,7 +94,7 @@ export default function ConfigPanel() {
           </div>
         </div>
 
-        <button onClick={save} className="w-full rounded bg-green-600 p-2 font-medium text-white hover:bg-green-700">
+        <button onClick={save} className="w-full rounded btn-primary p-2 font-medium">
           {saved ? "Guardado ✓" : "Guardar configuración"}
         </button>
       </div>

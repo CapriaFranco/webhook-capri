@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { loadConfig } from '@/lib/storage';
+import { Zap, Clock } from '@/components/Icons';
 
 type TestResult = {
   phone: string;
@@ -49,9 +51,14 @@ export default function StressTestPanel() {
   };
 
   const handleRunTest = async () => {
+    // if webhook not provided, try to read from config
     if (!webhookUrl.trim()) {
-      alert('⚠️ Debes ingresar la URL del webhook de n8n');
-      return;
+      const cfg = loadConfig();
+      if (!cfg?.webhookUrl?.trim()) {
+        alert('⚠️ Webhook no configurado en la sección de Configuración');
+        return;
+      }
+      setWebhookUrl(cfg.webhookUrl.trim());
     }
 
     setIsLoading(true);
@@ -103,26 +110,25 @@ export default function StressTestPanel() {
   const totalPages = Math.ceil(results.length / pageSize);
   const pagedResults = results.slice(page * pageSize, (page + 1) * pageSize);
 
+  useEffect(() => {
+    const cfg = loadConfig();
+    if (cfg?.webhookUrl) setWebhookUrl(cfg.webhookUrl);
+  }, []);
+
   return (
-    <div className="rounded-lg border border-orange-300 bg-orange-50 p-6">
-      <h3 className="mb-4 text-lg font-semibold text-orange-900">🧪 Prueba de Estrés</h3>
+    <div className="stress-hero neon-panel">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg card-title flex items-center gap-2"><Zap className="inline-block" size={18} />Prueba de Estrés</h3>
+        <div className="badge">ESTRÉS</div>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Inputs - Left column */}
         <div className="space-y-4">
-        {/* Webhook URL */}
+        {/* Webhook: use config (no editable here) */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">
-            URL del Webhook n8n:
-          </label>
-          <input
-            type="text"
-            value={webhookUrl}
-            onChange={(e) => setWebhookUrl(e.target.value)}
-            disabled={isLoading}
-            placeholder="ej: https://webhook.site/xxxxx"
-            className="mt-2 w-full rounded border px-3 py-2 text-sm"
-          />
+          <label className="block text-sm small-muted">Webhook (desde Configuración)</label>
+          <div className="mt-2 rounded p-2 border border-white/5 text-sm">{webhookUrl || 'No configurado'}</div>
         </div>
 
         {/* Usuarios (Input numérico) */}
@@ -169,9 +175,13 @@ export default function StressTestPanel() {
         <button
           onClick={handleRunTest}
           disabled={isLoading}
-          className="w-full rounded bg-orange-600 px-4 py-2 font-medium text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded btn-primary px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {isLoading ? 'Enviando pruebas...' : '▶️ Ejecutar Prueba'}
+          {isLoading ? (
+            <span><Clock className="inline-block mr-2" size={16} />Enviando pruebas...</span>
+          ) : (
+            <span><Zap className="inline-block mr-2" size={16} />Ejecutar Prueba</span>
+          )}
         </button>
         </div>
 
@@ -179,13 +189,13 @@ export default function StressTestPanel() {
         <div>
           {summary && (
             <div className="rounded-lg border border-blue-300 bg-blue-50 p-4 space-y-3">
-              <div className="font-semibold text-blue-900 mb-4">📊 Resultados</div>
+              <div className="font-semibold text-blue-900 mb-4">Resultados</div>
               
               {/* Summary Stats */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded bg-white p-2 text-center">
-                  <div className="text-xs text-gray-600">Total</div>
-                  <div className="text-lg font-bold text-blue-600">{summary.total}</div>
+                  <div className="rounded bg-white/3 p-2 text-center">
+                  <div className="text-xs muted">Total</div>
+                  <div className="text-lg font-bold">{summary.total}</div>
                 </div>
                 <div className="rounded bg-white p-2 text-center">
                   <div className="text-xs text-gray-600">Duración</div>
@@ -198,25 +208,21 @@ export default function StressTestPanel() {
                 <div className="space-y-2 border-t pt-3">
                   <div className="text-sm font-semibold text-blue-900">⏱️ Tiempos de Respuesta:</div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded bg-green-100 p-2">
-                      <div className="text-xs text-green-700">
-                        <span className="font-bold">{metrics.lessThan1s}</span> en &lt;1s
-                      </div>
+                    <div className="rounded p-2 metric">
+                      <div className="value">{metrics.lessThan1s}</div>
+                      <div className="muted text-xs">en &lt;1s</div>
                     </div>
-                    <div className="rounded bg-blue-100 p-2">
-                      <div className="text-xs text-blue-700">
-                        <span className="font-bold">{metrics.lessThan5s}</span> en &lt;5s
-                      </div>
+                    <div className="rounded p-2 metric">
+                      <div className="value">{metrics.lessThan5s}</div>
+                      <div className="muted text-xs">en &lt;5s</div>
                     </div>
-                    <div className="rounded bg-yellow-100 p-2">
-                      <div className="text-xs text-yellow-700">
-                        <span className="font-bold">{metrics.moreThan5s}</span> en &gt;5s
-                      </div>
+                    <div className="rounded p-2 metric">
+                      <div className="value">{metrics.moreThan5s}</div>
+                      <div className="muted text-xs">en &gt;5s</div>
                     </div>
-                    <div className="rounded bg-orange-100 p-2">
-                      <div className="text-xs text-orange-700">
-                        <span className="font-bold">{metrics.noResponse}</span> Sin respuesta
-                      </div>
+                    <div className="rounded p-2 metric">
+                      <div className="value">{metrics.noResponse}</div>
+                      <div className="muted text-xs">Sin respuesta</div>
                     </div>
                   </div>
                 </div>
@@ -224,24 +230,24 @@ export default function StressTestPanel() {
 
               {/* Error Summary */}
               <div className="border-t pt-3 space-y-2">
-                <div className="text-sm font-semibold text-blue-900">✅ Estado:</div>
+                  <div className="text-sm font-semibold">Estado:</div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="rounded bg-green-100 p-2 text-center">
-                    <div className="text-green-700">
-                      <span className="font-bold text-lg">{summary.success}</span>
-                      <div>Éxito</div>
+                      <div className="text-green-400">
+                      <div className="font-bold text-lg">{summary.success}</div>
+                      <div className="text-xs muted">Éxito</div>
                     </div>
                   </div>
                   <div className="rounded bg-red-100 p-2 text-center">
-                    <div className="text-red-700">
-                      <span className="font-bold text-lg">{summary.error}</span>
-                      <div>Error</div>
+                      <div className="text-red-400">
+                      <div className="font-bold text-lg">{summary.error}</div>
+                      <div className="text-xs muted">Error</div>
                     </div>
                   </div>
                   <div className="rounded bg-gray-100 p-2 text-center">
-                    <div className="text-gray-700">
-                      <span className="font-bold text-lg">{(metrics?.noResponse || 0)}</span>
-                      <div>Sin resp.</div>
+                      <div className="text-gray-400">
+                      <div className="font-bold text-lg">{(metrics?.noResponse || 0)}</div>
+                      <div className="text-xs muted">Sin resp.</div>
                     </div>
                   </div>
                 </div>
