@@ -1,104 +1,108 @@
-"use client";
+"use client"
 
-import { useEffect, useState } from "react";
-import { saveConfig, loadConfig } from "@/lib/storage";
-import { Settings, CheckCircle } from '@/components/Icons';
+import { useEffect, useState } from "react"
+import { saveConfig, loadConfig } from "@/lib/storage"
 
 export default function ConfigPanel() {
   const [mounted, setMounted] = useState(false);
-  const [webhookUrl, setWebhookUrl] = useState("");
-  const [phone, setPhone] = useState("");
-  const [name, setName] = useState("");
-  const [saved, setSaved] = useState(false);
+  const [webhookUrl, setWebhookUrl] = useState<string>(() => {
+    try {
+      const c = typeof window !== 'undefined' ? loadConfig() : null;
+      return c?.webhookUrl ?? '';
+    } catch {
+      return '';
+    }
+  });
+  const [phone, setPhone] = useState<string>(() => {
+    try {
+      const c = typeof window !== 'undefined' ? loadConfig() : null;
+      return c?.phone ?? '5491101234567';
+    } catch {
+      return '5491101234567';
+    }
+  });
+  const [name, setName] = useState<string>(() => {
+    try {
+      const c = typeof window !== 'undefined' ? loadConfig() : null;
+      return c?.name ?? 'user';
+    } catch {
+      return 'user';
+    }
+  });
+  const [saved, setSaved] = useState(false)
 
-  // Cargar config al montar (lado cliente)
   useEffect(() => {
-    const cfg = loadConfig();
-    setWebhookUrl(cfg?.webhookUrl ?? "");
-    setPhone(cfg?.phone ?? "5491131264254");
-    setName(cfg?.name ?? "Test User");
-    setMounted(true);
+    // mark mounted; initial values were set in state initializers
+    setMounted(true)
 
     const onUpdated = () => {
-      const c = loadConfig();
-      setWebhookUrl(c?.webhookUrl ?? "");
-      setPhone(c?.phone ?? "5491131264254");
-      setName(c?.name ?? "Test User");
-    };
-    window.addEventListener("whatsapp-config-updated", onUpdated);
-    return () => window.removeEventListener("whatsapp-config-updated", onUpdated);
-  }, []);
+      const c = loadConfig()
+      setWebhookUrl(c?.webhookUrl ?? "")
+      setPhone(c?.phone ?? "5491101234567")
+      setName(c?.name ?? "user")
+    }
+    window.addEventListener("whatsapp-config-updated", onUpdated)
+    return () => window.removeEventListener("whatsapp-config-updated", onUpdated)
+  }, [])
 
   const save = () => {
-    saveConfig({ webhookUrl: webhookUrl.trim(), phone: phone.trim(), name: name.trim() });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
+    saveConfig({ webhookUrl: webhookUrl.trim(), phone: phone.trim(), name: name.trim() })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
 
-  const isWebhookConfigured = Boolean(webhookUrl.trim());
-
-  // No renderizar hasta que esté montado en cliente (evita hydration mismatch)
   if (!mounted) {
     return (
-      <div className="rounded-lg panel p-4">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-lg card-title"><Settings className="inline-block mr-2" size={16} />Configuración</h2>
-          <div className="rounded-full px-2 py-1 text-xs font-medium bg-white/5 muted">Cargando...</div>
-        </div>
+      <div className="panel neon-border-neutral">
+        <div className="panel-title">Configuración</div>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="rounded-lg panel p-4 neon-panel">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold"><Settings className="inline-block mr-2" size={16} />Configuración</h2>
-        <div className={"rounded-full px-2 py-1 text-xs font-medium " + (isWebhookConfigured ? "bg-white/5 text-accent" : "bg-white/5 muted")}>
-          {isWebhookConfigured ? (<span className="flex items-center gap-2"><CheckCircle size={14} />Configuración guardada</span>) : "Webhook no configurado"}
-        </div>
+    <div className="panel neon-border-neutral">
+      <div className="panel-header">
+        <h2 className="panel-title">Configuración</h2>
       </div>
 
-      <div className="space-y-3">
-        <div>
-          <label className="mb-1 block text-sm small-muted">URL del Webhook n8n</label>
+      <div className="space-y-lg">
+        <div className="form-group">
+          <label className="form-label">URL Webhook</label>
           <input
             type="text"
             value={webhookUrl}
             onChange={(e) => setWebhookUrl(e.target.value)}
-            placeholder="https://tu-instancia.app.n8n.cloud/webhook/..."
-            className="w-full rounded p-2 bg-transparent border border-white/5"
+            placeholder="http://localhost:5678/webhook/..."
+            className="input"
           />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-sm font-medium">Tu número de teléfono</label>
-            <input
-              type="text"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="5491131264254"
-              className="w-full rounded border p-2"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium">Tu nombre</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Test User"
-              className="w-full rounded border p-2"
-            />
-          </div>
+        <div className="form-group">
+          <label className="form-label">Número</label>
+          <input
+            type="text"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="5491101234567"
+            className="input"
+          />
         </div>
 
-        <button onClick={save} className="w-full rounded btn btn-primary p-2 font-medium">
-          {saved ? "Guardado ✓" : "Guardar configuración"}
+        <div className="form-group">
+          <label className="form-label">Nombre Usuario</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Usuario"
+            className="input"
+          />
+        </div>
+
+        <button onClick={save} className="btn btn-secondary" style={{ width: "100%" }}>
+          {saved ? "✓ Guardado" : "Guardar"}
         </button>
       </div>
     </div>
-  );
+  )
 }
-

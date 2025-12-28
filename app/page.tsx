@@ -1,27 +1,32 @@
-import ConfigPanel from '@/components/ConfigPanel';
-import ChatInterface from '@/components/ChatInterface';
-import StressTestPanel from '@/components/StressTestPanel';
+import ConfigPanel from "@/components/ConfigPanel"
+import ChatInterface from "@/components/ChatInterface"
+import StressTestPanel from "@/components/StressTestPanel"
+import TopToolbar from "@/components/TopToolbar"
+import ResultsPanel from "@/components/ResultsPanel"
 
 export default function Home() {
   return (
-    <div className="min-h-screen p-6">
-      <div className="container-compact">
-        <header className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">📱 Simulador WhatsApp - n8n</h1>
-          <div className="text-sm muted">Prueba flujos de n8n sin WhatsApp real</div>
+    <div className="page-container">
+      <div className="content-wrapper">
+        <header className="space-y-lg" style={{ marginBottom: "var(--space-2xl)" }}>
+          <h1 className="heading-1">Webhook Simulator</h1>
+          <TopToolbar />
         </header>
 
         <main className="app-grid">
-          <section className="space-y-6">
+          {/* Left column: Chat + Results */}
+          <section className="space-y-lg">
             <ChatInterface />
+            <ResultsPanel />
           </section>
 
-          <aside className="space-y-6">
+          {/* Right column: Config + Stress Test panels */}
+          <aside className="space-y-lg">
             <ConfigPanel />
             <StressTestPanel />
           </aside>
         </main>
       </div>
     </div>
-  );
+  )
 }

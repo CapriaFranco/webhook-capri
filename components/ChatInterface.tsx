@@ -1,115 +1,134 @@
- 'use client';
+"use client"
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { loadConfig } from '@/lib/storage';
-import { Send, Clock, CheckCircle, XCircle, Trash2 } from '@/components/Icons';
-import type { StoredConfig } from '@/lib/storage';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { loadConfig } from "@/lib/storage"
+import type { StoredConfig } from "@/lib/storage"
 import {
   subscribeToPhoneMessages,
   saveMessage,
   unsubscribeFromMessages,
   clearPhoneMessages,
-  clearAllMessagesExcept,
   filterMessagesByDateRange,
   type Message,
-} from '@/lib/firebase-client';
-import type { Unsubscribe } from 'firebase/database';
+} from "@/lib/firebase-client"
+import type { Unsubscribe } from "firebase/database"
 
 type StoredMessage = Message & {
-  status?: 'sending' | 'sent' | 'error';
-};
-
-type MessageType = 'text' | 'audio' | 'image';
+  status?: "sending" | "sent" | "error"
+}
 
 export default function ChatInterface() {
-  const [allMessages, setAllMessages] = useState<StoredMessage[]>([]);
-  const [inputText, setInputText] = useState('');
-  const [config, setConfig] = useState<StoredConfig | null>(null);
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const unsubscribeRef = useRef<Unsubscribe | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [allMessages, setAllMessages] = useState<StoredMessage[]>([])
+  const [inputText, setInputText] = useState("")
+  const [config, setConfig] = useState<StoredConfig | null>(null)
+  const [startDate, setStartDate] = useState<string>("")
+  const [endDate, setEndDate] = useState<string>("")
+  const unsubscribeRef = useRef<Unsubscribe | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    const c = loadConfig();
-    setConfig(c);
+    const c = loadConfig()
+    setConfig(c)
 
-    const onCfg = () => setConfig(loadConfig());
-    window.addEventListener('whatsapp-config-updated', onCfg);
-    return () => window.removeEventListener('whatsapp-config-updated', onCfg);
-  }, []);
+    const onCfg = () => setConfig(loadConfig())
+    window.addEventListener("whatsapp-config-updated", onCfg)
+    return () => window.removeEventListener("whatsapp-config-updated", onCfg)
+  }, [])
+
+  // Clear chat handler (moved up so effects can reference it)
+  const handleClearChat = useCallback(async () => {
+    if (!config?.phone) return
+    if (!window.confirm("¿Estás seguro de que quieres borrar todos los mensajes de este número?")) return
+    try {
+      await clearPhoneMessages(config.phone)
+      setAllMessages([])
+    } catch (err) {
+      console.error("Error clearing messages:", err)
+    }
+  }, [config?.phone])
+
+  // Listen to toolbar and stress-test events
+  useEffect(() => {
+    const onFilter = (e: Event) => {
+      const custom = e as CustomEvent
+      const d = custom?.detail
+      if (!d) return
+      setStartDate(d.from || "")
+      setEndDate(d.to || "")
+    }
+    const onClear = () => {
+      void handleClearChat()
+    }
+    window.addEventListener("filter-date-updated", onFilter as EventListener)
+    window.addEventListener("clear-chat", onClear as EventListener)
+    return () => {
+      window.removeEventListener("filter-date-updated", onFilter as EventListener)
+      window.removeEventListener("clear-chat", onClear as EventListener)
+    }
+  }, [handleClearChat])
 
   // Filtrar mensajes por rango de fechas
   const messages = useMemo(() => {
-    let filtered = [...allMessages];
+    let filtered = [...allMessages]
     if (startDate || endDate) {
-      const start = startDate ? new Date(startDate) : null;
-      const end = endDate ? new Date(endDate) : null;
-      filtered = filterMessagesByDateRange(filtered, start, end);
+      const start = startDate ? new Date(startDate) : null
+      const end = endDate ? new Date(endDate) : null
+      filtered = filterMessagesByDateRange(filtered, start, end)
     }
-    return filtered;
-  }, [allMessages, startDate, endDate]);
+    return filtered
+  }, [allMessages, startDate, endDate])
 
   // Scroll to bottom when messages change
   useEffect(() => {
     setTimeout(() => {
-      if (!containerRef.current) return;
-      containerRef.current.scrollTop = containerRef.current.scrollHeight;
-    }, 50);
-  }, [messages]);
+      if (!containerRef.current) return
+      containerRef.current.scrollTop = containerRef.current.scrollHeight
+    }, 50)
+  }, [messages])
 
   // Subscribe to Firebase messages for current phone
   useEffect(() => {
-    if (!config?.phone) return;
+    if (!config?.phone) return
 
     try {
       const unsubscribe = subscribeToPhoneMessages(config.phone, (fbMessages) => {
-        setAllMessages(fbMessages.map((m) => ({ ...m, status: 'sent' as const })));
-      });
-      unsubscribeRef.current = unsubscribe;
+        setAllMessages(fbMessages.map((m) => ({ ...m, status: "sent" as const })))
+      })
+      unsubscribeRef.current = unsubscribe
       return () => {
         if (unsubscribeRef.current) {
-          unsubscribeFromMessages(unsubscribeRef.current);
-          unsubscribeRef.current = null;
+          unsubscribeFromMessages(unsubscribeRef.current)
+          unsubscribeRef.current = null
         }
-      };
+      }
     } catch (err) {
-      console.error('Error subscribing to Firebase:', err);
+      console.error("Error subscribing to Firebase:", err)
     }
-  }, [config?.phone]);
+  }, [config?.phone])
 
-  const canSend = Boolean(config?.webhookUrl?.trim());
-
-  const headerSubtitle = useMemo(() => {
-    if (!config) return 'Configura el webhook para empezar';
-    if (!config.webhookUrl?.trim()) return 'Configura el webhook para empezar';
-    return `De: ${config.phone} • Contacto: ${config.name}`;
-  }, [config]);
+  const canSend = Boolean(config?.webhookUrl?.trim())
 
   const sendToN8n = async (text: string) => {
-    if (!config) return;
+    if (!config) return
 
-    const timestamp = new Date().toISOString();
+    const timestamp = new Date().toISOString()
 
-    // 1. Guardar en Firebase inmediatamente (lo más importante)
     try {
       await saveMessage({
         message: text,
         phone: config.phone,
         timestamp,
-        direction: 'outbound',
-      });
-      console.log('[ChatInterface] Message saved to Firebase');
+        direction: "outbound",
+      })
     } catch (firebaseErr) {
-      console.error('[ChatInterface] Error saving to Firebase:', firebaseErr);
-      return;
+      console.error("[ChatInterface] Error saving to Firebase:", firebaseErr)
+      return
     }
 
-    // 2. Enviar a n8n en paralelo (opcional, no bloquea)
     if (config.webhookUrl) {
-      fetch('/api/send-to-n8n', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      fetch("/api/send-to-n8n", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           webhookUrl: config.webhookUrl,
           message: text,
@@ -117,145 +136,84 @@ export default function ChatInterface() {
           name: config.name,
         }),
       }).catch((err) => {
-        console.warn('[ChatInterface] Warning: Failed to send to n8n webhook:', err);
-        // No es crítico si falla - el mensaje ya está en Firebase
-      });
+        console.warn("[ChatInterface] Warning: Failed to send to n8n webhook:", err)
+      })
     }
-  };
+  }
 
   const handleSendText = () => {
-    if (!inputText.trim()) return;
-    void sendToN8n(inputText.trim());
-    setInputText('');
-  };
+    if (!inputText.trim()) return
+    void sendToN8n(inputText.trim())
+    setInputText("")
+  }
 
-  const handleClearChat = async () => {
-    if (!config?.phone) return;
-    if (!window.confirm('¿Estás seguro de que quieres borrar todos los mensajes de este número?')) return;
-    try {
-      await clearPhoneMessages(config.phone);
-      setAllMessages([]);
-    } catch (err) {
-      console.error('Error clearing messages:', err);
-    }
-  };
-
-  const handleClearAllExcept = async () => {
-    if (!config?.phone) return;
-    if (!window.confirm('¿Borrar TODOS los mensajes EXCEPTO los de este número? Esta acción no se puede deshacer.')) return;
-    try {
-      await clearAllMessagesExcept(config.phone);
-      setAllMessages([]);
-    } catch (err) {
-      console.error('Error clearing all except:', err);
-    }
-  };
 
   return (
-    <div className="flex flex-col min-h-[520px] overflow-hidden rounded-lg panel neon-panel">
-      <div className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="text-lg card-title flex items-center"><Send className="mr-2" size={18} />Simulador WhatsApp</div>
-        </div>
-        <div className="small-muted">{headerSubtitle}</div>
-      </div>
+    <div className="chat-container neon-border-neutral">
 
-      {/* Filtro de fechas */}
-      <div className="border-b border-white/5 p-3">
-        <div className="flex gap-2">
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-gray-700">Desde:</label>
-            <input
-              type="datetime-local"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full rounded border px-2 py-1 text-sm"
-            />
-          </div>
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-gray-700">Hasta:</label>
-            <input
-              type="datetime-local"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full rounded border px-2 py-1 text-sm"
-            />
-          </div>
-          <button
-            onClick={() => {
-              setStartDate('');
-              setEndDate('');
-            }}
-            className="mt-5 rounded btn btn-secondary px-3 py-1 text-xs"
-          >
-            Limpiar filtro
-          </button>
-        </div>
-      </div>
-
-      <div ref={containerRef} className="flex-1 space-y-2 overflow-y-auto p-4">
+      {/* Messages Display */}
+      <div ref={containerRef} className="chat-messages">
         {messages.length === 0 ? (
-          <div className="mt-10 text-center small-muted">No hay mensajes. Envía uno para probar.</div>
+          <div className="text-secondary" style={{ textAlign: "center", padding: "var(--space-3xl) 0" }}>
+            No hay mensajes
+          </div>
         ) : (
-          messages.map((msg) => (
-            <div key={msg.id} className={msg.direction === 'outbound' ? 'flex justify-end' : 'flex justify-start'}>
-              <div className={`max-w-xs rounded-lg p-3 ${msg.direction === 'outbound' ? 'bg-white/5' : 'bg-white/3'}`}>
-                <p className="text-sm">{msg.message}</p>
-                <div className="mt-1 flex items-center gap-2 text-xs muted">
-                  {new Date(msg.timestamp).toLocaleTimeString()}
-                  {msg.direction === 'outbound' && msg.status === 'sending' && (
-                    <span className="ml-2 text-xs muted"><Clock className="inline-block mr-1" size={12} />Enviando...</span>
-                  )}
-                  {msg.direction === 'outbound' && msg.status === 'sent' && (
-                    <span className="ml-2 text-xs muted"><CheckCircle className="inline-block mr-1 text-green-400" size={12} />Enviado</span>
-                  )}
-                  {msg.direction === 'outbound' && msg.status === 'error' && (
-                    <span className="ml-2 text-xs muted"><XCircle className="inline-block mr-1 text-red-400" size={12} />Error</span>
+          <div className="space-y-md">
+            {messages.map((msg) => (
+              <div key={msg.id} className={`message-item ${msg.direction === "outbound" ? "user" : "bot"}`}>
+                <div className={`message-bubble ${msg.direction === "outbound" ? "bubble-user" : "bubble-bot"}`}>
+                  <div className="message-content">{msg.message}</div>
+                </div>
+
+                <div className="message-footer">
+                  <div className={`message-time ${msg.direction === "outbound" ? "time-right" : "time-left"}`}>{new Date(msg.timestamp).toLocaleTimeString()}</div>
+                  {msg.direction === "outbound" && (
+                    <div className={`status-indicator ${msg.status === "sent" ? "status-success" : msg.status === "error" ? "status-danger" : "status-warning"}`} style={{ gap: "6px" }}>
+                      <span className="status-dot"></span>
+                    </div>
                   )}
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
 
-      <div className="border-t border-white/5 p-4 space-y-2">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
-            placeholder="Escribe un mensaje..."
-            className="flex-1 rounded border p-2"
-            disabled={!canSend}
-          />
-          <button
-            onClick={handleSendText}
-            disabled={!canSend}
-            className="rounded btn btn-primary px-6 py-2 font-medium disabled:opacity-50 flex items-center gap-2"
-          >
-            <Send size={16} />
-            <span>Enviar</span>
-          </button>
-          <button
-            onClick={handleClearChat}
-            className="rounded btn btn-danger px-4 py-2 text-sm font-medium"
-            title="Borrar mensajes de este número"
-          >
-            <span className="flex items-center gap-2"><Trash2 size={14} />Limpiar</span>
-          </button>
-          <button
-            onClick={handleClearAllExcept}
-            className="rounded btn btn-secondary px-4 py-2 text-sm font-medium"
-            title="Borrar TODO menos este número"
-          >
-            <span className="flex items-center gap-2"><Trash2 size={14} />Limpiar Todo</span>
-          </button>
-        </div>
-        {!canSend && <div className="text-xs text-gray-600">Configura el webhook para habilitar el envío.</div>}
+      {/* Small inline status info below chat (subtle) */}
+      <div style={{ marginTop: "var(--space-sm)", fontSize: "var(--text-xs)", color: "var(--text-tertiary)" }}>
+        <span style={{ marginRight: "var(--space-md)", marginLeft: "var(--space-xl)" }}>Estado:</span>
+        <span style={{ marginRight: "var(--space-sm)", display: "inline-flex", alignItems: "center" }}>
+          <span className="status-indicator status-danger"><span className="status-dot"></span><span style={{ marginLeft: "6px" }}>Fallo</span></span>
+        </span>
+        <span style={{ marginRight: "var(--space-sm)", display: "inline-flex", alignItems: "center" }}>
+          <span className="status-indicator status-warning"><span className="status-dot"></span><span style={{ marginLeft: "6px" }}>En espera</span></span>
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center" }}>
+          <span className="status-indicator status-success"><span className="status-dot"></span><span style={{ marginLeft: "6px" }}>Recibido</span></span>
+        </span>
+      </div>
+
+      {/* Input + Send Button inline */}
+      <div className="chat-footer" style={{ display: "flex", gap: "var(--space-sm)", marginTop: "var(--space-md)" }}>
+        <input
+          type="text"
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSendText()}
+          placeholder="Escribe un mensaje..."
+          className="input"
+          disabled={!canSend}
+          style={{ flex: 1, height: 44 }}
+        />
+        <button
+          onClick={handleSendText}
+          disabled={!canSend || !inputText.trim()}
+          className="btn btn-primary"
+          style={{ width: 160 }}
+        >
+          Enviar
+        </button>
       </div>
     </div>
-  );
+  )
 }
-
