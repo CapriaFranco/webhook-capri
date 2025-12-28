@@ -14,11 +14,11 @@ export default function Home() {
         <main className="app-grid">
           <section className="space-y-6">
             <ChatInterface />
-            <StressTestPanel />
           </section>
 
-          <aside>
+          <aside className="space-y-6">
             <ConfigPanel />
+            <StressTestPanel />
           </aside>
         </main>
       </div>

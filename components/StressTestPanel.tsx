@@ -19,7 +19,6 @@ type TestResult = {
 export default function StressTestPanel() {
   const [numUsers, setNumUsers] = useState(100);
   const [messagesPerUser, setMessagesPerUser] = useState(1);
-  const [webhookUrl, setWebhookUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<TestResult[]>([]);
   const [summary, setSummary] = useState<{
@@ -51,15 +50,13 @@ export default function StressTestPanel() {
   };
 
   const handleRunTest = async () => {
-    // if webhook not provided, try to read from config
-    if (!webhookUrl.trim()) {
-      const cfg = loadConfig();
-      if (!cfg?.webhookUrl?.trim()) {
-        alert('⚠️ Webhook no configurado en la sección de Configuración');
-        return;
-      }
-      setWebhookUrl(cfg.webhookUrl.trim());
+    // read webhook from global config
+    const cfg = loadConfig();
+    if (!cfg?.webhookUrl?.trim()) {
+      alert('⚠️ Webhook no configurado en la sección de Configuración');
+      return;
     }
+    const webhookUrl = cfg.webhookUrl.trim();
 
     setIsLoading(true);
     setResults([]);
@@ -74,9 +71,9 @@ export default function StressTestPanel() {
         body: JSON.stringify({
           numUsers: Number(numUsers),
           messagesPerUser: Number(messagesPerUser),
-          webhookUrl: webhookUrl.trim(),
-          waitForResponses: true, // Esperar respuestas del flujo n8n
-          waitMs: 5000, // Esperar 5 segundos para que n8n procese
+          webhookUrl,
+          waitForResponses: true,
+          waitMs: 5000,
         }),
       });
 
@@ -111,31 +108,24 @@ export default function StressTestPanel() {
   const pagedResults = results.slice(page * pageSize, (page + 1) * pageSize);
 
   useEffect(() => {
-    const cfg = loadConfig();
-    if (cfg?.webhookUrl) setWebhookUrl(cfg.webhookUrl);
+    // no local webhook state: always use global config
+    // keep effect to re-render if needed in future
   }, []);
 
   return (
     <div className="stress-hero neon-panel">
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg card-title flex items-center gap-2"><Zap className="inline-block" size={18} />Prueba de Estrés</h3>
-        <div className="badge">ESTRÉS</div>
-      </div>
+        <div className="mb-4">
+          <h3 className="text-lg card-title flex items-center gap-2"><Zap className="inline-block" size={18} />Prueba de Estrés</h3>
+        </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Inputs - Left column */}
         <div className="space-y-4">
-        {/* Webhook: use config (no editable here) */}
-        <div>
-          <label className="block text-sm small-muted">Webhook (desde Configuración)</label>
-          <div className="mt-2 rounded p-2 border border-white/5 text-sm">{webhookUrl || 'No configurado'}</div>
-        </div>
+        {/* Webhook is read from ConfigPanel -- not shown here */}
 
         {/* Usuarios (Input numérico) */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Número de usuarios: <span className="font-bold text-orange-600">{numUsers.toLocaleString()}</span>
-          </label>
+          <label className="block text-sm font-medium">Número de usuarios</label>
           <input
             type="number"
             min="1"
@@ -150,9 +140,7 @@ export default function StressTestPanel() {
 
         {/* Mensajes por usuario */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Mensajes por usuario: <span className="font-bold text-orange-600">{messagesPerUser}</span>
-          </label>
+          <label className="block text-sm font-medium">Mensajes por usuario</label>
           <input
             type="number"
             min="1"
@@ -175,7 +163,7 @@ export default function StressTestPanel() {
         <button
           onClick={handleRunTest}
           disabled={isLoading}
-          className="w-full rounded btn-primary px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded btn btn-primary px-4 py-2 font-medium disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isLoading ? (
             <span><Clock className="inline-block mr-2" size={16} />Enviando pruebas...</span>

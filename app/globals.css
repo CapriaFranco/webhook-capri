@@ -65,9 +65,20 @@ body{
 
 /* Buttons */
 .btn{ display:inline-flex; align-items:center; gap:10px; padding:10px 14px; border-radius:10px; border:none; cursor:pointer; font-weight:600; }
-.btn-primary{ background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: white; box-shadow: 0 8px 24px rgba(13,12,30,0.45); }
+.btn-primary{
+  background: transparent;
+  color: var(--text);
+  border: 1px solid rgba(109,40,217,0.18);
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary::before{
+  content:''; position:absolute; inset:0; background: linear-gradient(90deg,var(--accent),var(--accent-2)); opacity:0.06; pointer-events:none;
+}
+.btn-primary:hover{ border-color: rgba(109,40,217,0.32); }
+.btn-neon{ /* alias, semantic */ }
 .btn-secondary{ background: transparent; border:1px solid rgba(255,255,255,0.04); color:var(--text); }
-.btn-danger{ background: rgba(255,60,90,0.06); color:#ffccd0; }
+.btn-danger{ background: transparent; color:#ff9aa2; border:1px solid rgba(255,90,110,0.12); }
 .btn:focus{ outline: 3px solid rgba(103,232,249,0.12); outline-offset: 2px; }
 
 /* Inputs */

@@ -50,7 +50,7 @@ export default function ConfigPanel() {
   }
 
   return (
-    <div className="rounded-lg panel p-4 neon-border-strong">
+    <div className="rounded-lg panel p-4 neon-panel">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold"><Settings className="inline-block mr-2" size={16} />Configuración</h2>
         <div className={"rounded-full px-2 py-1 text-xs font-medium " + (isWebhookConfigured ? "bg-white/5 text-accent" : "bg-white/5 muted")}>
@@ -94,7 +94,7 @@ export default function ConfigPanel() {
           </div>
         </div>
 
-        <button onClick={save} className="w-full rounded btn-primary p-2 font-medium">
+        <button onClick={save} className="w-full rounded btn btn-primary p-2 font-medium">
           {saved ? "Guardado ✓" : "Guardar configuración"}
         </button>
       </div>
