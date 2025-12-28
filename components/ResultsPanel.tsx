@@ -74,9 +74,9 @@ export default function ResultsPanel() {
           <tbody>
             {results.map((r, i) => (
               <tr key={i}>
-                <td className="mono-text">{i + 1}</td>
-                <td>{r.userName}</td>
-                <td>
+                <td className="mono-text" style={{ width: "60px" }}>{i + 1}</td>
+                <td style={{ width: "120px" }}>{r.userName}</td>
+                <td style={{ width: "100px" }}>
                   <div
                     className={`status-indicator ${
                       r.status === "success"
@@ -90,29 +90,28 @@ export default function ResultsPanel() {
                     <span>{r.status}</span>
                   </div>
                 </td>
-                <td className="mono-text">{r.timestamp ? new Date(r.timestamp).toLocaleTimeString() : "-"}</td>
-                <td className="mono-text">{r.phone}</td>
-                <td className="mono-text">{typeof r.responseTime === "number" ? `${r.responseTime}ms` : "-"}</td>
-                <td style={{ width: "40px" }}>
+                <td className="mono-text" style={{ width: "100px" }}>{r.timestamp ? new Date(r.timestamp).toLocaleTimeString() : "-"}</td>
+                <td className="mono-text" style={{ width: "140px" }}>{r.phone}</td>
+                <td className="mono-text" style={{ width: "90px" }}>{typeof r.responseTime === "number" ? `${r.responseTime}ms` : "-"}</td>
+                <td style={{ width: "60px", textAlign: "center" }}>
                   <span
                     onMouseEnter={(e) => handleTooltip(e, r.message)}
                     onMouseLeave={handleTooltipHide}
                     style={{ cursor: "pointer", fontSize: "1.2em" }}
+                    title="Ver mensaje enviado"
                   >
                     ⋮
                   </span>
                 </td>
-                <td style={{ maxWidth: "150px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {r.n8nResponse ? r.n8nResponse.substring(0, 50) + (r.n8nResponse.length > 50 ? "..." : "") : "-"}
-                  {r.n8nResponse && (
-                    <span
-                      onMouseEnter={(e) => handleTooltip(e, r.n8nResponse || "")}
-                      onMouseLeave={handleTooltipHide}
-                      style={{ marginLeft: "var(--space-xs)", cursor: "pointer" }}
-                    >
-                      ⓘ
-                    </span>
-                  )}
+                <td style={{ flex: 1, minWidth: "200px", maxWidth: "400px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: "var(--space-md)" }}>
+                  <span
+                    onMouseEnter={(e) => handleTooltip(e, r.n8nResponse || "Sin respuesta")}
+                    onMouseLeave={handleTooltipHide}
+                    style={{ cursor: "pointer" }}
+                    title="Ver respuesta completa"
+                  >
+                    {r.n8nResponse ? r.n8nResponse.substring(0, 60) + (r.n8nResponse.length > 60 ? "..." : "") : "-"}
+                  </span>
                 </td>
               </tr>
             ))}
