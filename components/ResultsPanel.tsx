@@ -28,8 +28,15 @@ export default function ResultsPanel() {
       if (!detail) return;
       setResults(detail.results || []);
     };
+    const clearHandler = () => {
+      setResults([]);
+    };
     window.addEventListener('stress-test-results', handler as EventListener);
-    return () => window.removeEventListener('stress-test-results', handler as EventListener);
+    window.addEventListener('clear-stress-results', clearHandler as EventListener);
+    return () => {
+      window.removeEventListener('stress-test-results', handler as EventListener);
+      window.removeEventListener('clear-stress-results', clearHandler as EventListener);
+    };
   }, []);
 
   const handleTooltip = (e: React.MouseEvent<HTMLSpanElement>, content: string) => {

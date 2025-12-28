@@ -116,7 +116,7 @@ const sampleMessages = [
 export async function POST(req: NextRequest) {
   try {
     const startTime = Date.now();
-    const { numUsers = 100, messagesPerUser = 1, webhookUrl, waitForResponses = true, waitMs = 3000 } = await req.json();
+    const { numUsers = 100, messagesPerUser = 1, webhookUrl, waitForResponses = true, waitMs = 300000 } = await req.json(); // 300s = 5 min
 
     if (!webhookUrl) {
       return NextResponse.json({ error: 'webhookUrl es requerido' }, { status: 400 });
@@ -231,7 +231,7 @@ export async function POST(req: NextRequest) {
 
     // Si solicitamos esperar respuestas, aguardar un tiempo y luego buscar respuestas en Firebase
     if (waitForResponses && waitMs > 0) {
-      console.log(`[stress-test] Esperando ${waitMs}ms por respuestas de n8n...`);
+      console.log(`[stress-test] Iniciando espera de ${waitMs}ms por respuestas de n8n. Teléfonos enviados: ${phonesSent.size}`);
       await new Promise(resolve => setTimeout(resolve, waitMs));
       
       // Capturar mensajes inbound que llegaron en este tiempo (respuestas del flujo de n8n)
@@ -277,7 +277,7 @@ export async function POST(req: NextRequest) {
           } else {
             // No llegó respuesta del flujo después de esperar
             result.status = 'no_response';
-            console.log(`[stress-test] Sin respuesta para ${result.phone} después de ${waitMs}ms`);
+            console.log(`[stress-test] ⚠️ Sin respuesta para ${result.phone} después de ${waitMs}ms. Respuestas inbound encontradas: ${Object.keys(inboundResponses).length}, Total enviados: ${phonesSent.size}`);
           }
         }
         

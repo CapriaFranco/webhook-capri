@@ -58,7 +58,7 @@ export default function StressTestPanel() {
           messagesPerUser: Number(messagesPerUser),
           webhookUrl,
           waitForResponses: true,
-          waitMs: 5000,
+          waitMs: 300000, // 5 minutos para flujos complejos de n8n
         }),
       })
 
@@ -203,10 +203,25 @@ export default function StressTestPanel() {
                 </div>
                 <div className="metric-card">
                   <div className="metric-label">No Response</div>
-                  <div className="metric-value metric-value-sm">{metrics.noResponse ?? 0}</div>
+                  <div className="metric-value metric-value-sm">{metrics?.noResponse ?? 0}</div>
                 </div>
               </div>
             </div>
+
+            <button
+              onClick={() => {
+                setSummary(null)
+                setMetrics(null)
+                try {
+                  window.dispatchEvent(new CustomEvent("clear-stress-results"))
+                } catch {
+                }
+              }}
+              className="btn btn-secondary"
+              style={{ width: "100%" }}
+            >
+              Clear Results
+            </button>
           </div>
         </div>
       )}
