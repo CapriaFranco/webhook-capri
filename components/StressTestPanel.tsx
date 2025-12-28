@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { loadConfig } from "@/lib/storage"
 
 export default function StressTestPanel() {
   const [numUsers, setNumUsers] = useState(100)
   const [messagesPerUser, setMessagesPerUser] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
   // results are emitted to the ResultsPanel via event; no local storage needed
   const [summary, setSummary] = useState<{
     total: number
@@ -48,6 +49,10 @@ export default function StressTestPanel() {
     setSummary(null)
     setMetrics(null)
 
+    // Crear nuevo AbortController para esta solicitud
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     try {
       const startTime = Date.now()
       const response = await fetch("/api/stress-test-send", {
@@ -60,6 +65,7 @@ export default function StressTestPanel() {
           waitForResponses: true,
           waitMs: 300000, // 5 minutos para flujos complejos de n8n
         }),
+        signal: controller.signal,
       })
 
       const data = await response.json()
@@ -96,10 +102,21 @@ export default function StressTestPanel() {
         }
       }
     } catch (err) {
-      alert(`❌ Error: ${err instanceof Error ? err.message : "Unknown error"}`)
+      if (err instanceof Error && err.name === 'AbortError') {
+        console.log('Test stopped by user')
+      } else {
+        alert(`❌ Error: ${err instanceof Error ? err.message : "Unknown error"}`)
+      }
     } finally {
       setIsLoading(false)
+      abortControllerRef.current = null
       // ignore
+    }
+  }
+
+  const handleStopTest = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
     }
   }
 
@@ -150,6 +167,12 @@ export default function StressTestPanel() {
           <button onClick={handleRunTest} disabled={isLoading} className="btn btn-primary" style={{ width: "100%" }}>
             {isLoading ? "Running..." : "Start Test"}
           </button>
+
+          {isLoading && (
+            <button onClick={handleStopTest} className="btn btn-danger-dark" style={{ width: "100%" }}>
+              Stop Test
+            </button>
+          )}
         </div>
       </div>
 
