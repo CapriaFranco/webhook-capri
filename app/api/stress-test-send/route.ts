@@ -173,21 +173,22 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify(payload),
           });
           const respText = await resp.text();
-          const status = resp.ok ? 'success' : 'error';
-          if (status === 'success') successCount++; else errorCount++;
           const waitTime = Date.now() - startReq;
+          
+          // NO contar como éxito/error aquí - solo es confirmación de recepción
+          // El status real se determinará después basado en respuesta del flujo
           results.push({
             phone,
             userName,
             message,
-            status,
-            response: respText,
+            status: 'pending', // Pendiente hasta que llegue respuesta real del flujo
+            response: respText, // Mostrar respuesta HTTP inmediata pero no usar para contar
             timestamp,
             waitTime,
           });
         } catch (e) {
-          errorCount++;
           const waitTime = Date.now() - startReq;
+          // Error en envío del webhook mismo
           results.push({
             phone,
             userName,
@@ -197,6 +198,7 @@ export async function POST(req: NextRequest) {
             timestamp,
             waitTime,
           });
+          errorCount++;
         }
         totalSent++;
       }
@@ -212,7 +214,7 @@ export async function POST(req: NextRequest) {
       console.log(`[stress-test] Esperando ${waitMs}ms por respuestas de n8n...`);
       await new Promise(resolve => setTimeout(resolve, waitMs));
       
-      // Capturar mensajes inbound que llegaron en este tiempo (potencialmente del flujo de n8n)
+      // Capturar mensajes inbound que llegaron en este tiempo (respuestas del flujo de n8n)
       const snapshot = await db.ref('messages').get();
       if (snapshot.exists()) {
         const allMessages = snapshot.val() as Record<string, MessageUpdate>;
@@ -224,13 +226,33 @@ export async function POST(req: NextRequest) {
           }
         }
         
-        // Enriquecer resultados con las respuestas que vinieron desde n8n
+        // Actualizar status y respuestas basado en lo que realmente devolvió n8n
+        successCount = 0; // Reiniciar contador
         for (const result of results) {
+          if (result.status === 'error') {
+            // Ya era error en el envío mismo, no cambiar
+            continue;
+          }
+          
           if (inboundResponses[result.phone]) {
             result.n8nResponse = inboundResponses[result.phone].message;
-            console.log(`[stress-test] Respuesta n8n para ${result.phone}: ${inboundResponses[result.phone].message}`);
+            // Determinar si fue éxito o error basado en el contenido de la respuesta
+            const responseMsg = inboundResponses[result.phone].message.toLowerCase();
+            if (responseMsg.includes('error') || responseMsg.includes('fail')) {
+              result.status = 'error';
+            } else {
+              result.status = 'success';
+              successCount++;
+            }
+            console.log(`[stress-test] Actualizado ${result.phone}: ${result.status} - ${inboundResponses[result.phone].message}`);
+          } else {
+            // No llegó respuesta del flujo después de esperar
+            result.status = 'no_response';
+            console.log(`[stress-test] Sin respuesta para ${result.phone} después de ${waitMs}ms`);
           }
         }
+        
+        errorCount = results.filter(r => r.status === 'error').length;
       }
     }
 

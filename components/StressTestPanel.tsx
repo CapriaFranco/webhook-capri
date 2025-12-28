@@ -6,7 +6,7 @@ type TestResult = {
   phone: string;
   userName: string;
   message: string;
-  status: 'pending' | 'sent' | 'success' | 'error';
+  status: 'pending' | 'sent' | 'success' | 'error' | 'no_response';
   response: string;
   n8nResponse?: string; // Respuesta del flujo n8n si la hay
   timestamp: string;
@@ -220,37 +220,46 @@ export default function StressTestPanel() {
                           ? 'bg-green-500'
                           : result.status === 'error'
                             ? 'bg-red-500'
-                            : 'bg-yellow-500'
+                            : result.status === 'no_response'
+                              ? 'bg-orange-500'
+                              : 'bg-yellow-500'
                       }`}
                     ></span>
-                    <span className="ml-1 font-semibold">
+                    <span className="ml-1 font-semibold text-xs">
                       {result.status === 'success'
                         ? '✅ Éxito'
                         : result.status === 'error'
                           ? '❌ Error'
-                          : '⏳ Pendiente'}
+                          : result.status === 'no_response'
+                            ? '⚠️ Sin respuesta'
+                            : '⏳ Pendiente'}
                     </span>
                   </div>
                 </div>
                 {result.response && (
-                  <div className="mt-2 bg-gray-100 rounded p-2 text-xs">
-                    <div className="font-semibold text-gray-700 mb-1">Respuesta HTTP inmediata:</div>
+                  <div className="mt-2 bg-gray-100 rounded p-2 text-xs border border-gray-300">
+                    <div className="font-semibold text-gray-600 mb-1">📨 Confirmación de recepción (NO cuenta para éxito/error):</div>
                     <pre className="text-gray-700 whitespace-pre-wrap break-words overflow-auto max-h-32 text-xs">
                       {result.response}
                     </pre>
                   </div>
                 )}
-                {result.n8nResponse && (
+                {result.n8nResponse ? (
                   <div className="mt-2 bg-blue-50 rounded p-2 text-xs border border-blue-200">
-                    <div className="font-semibold text-blue-700 mb-1">✅ Respuesta del flujo n8n:</div>
+                    <div className="font-semibold text-blue-700 mb-1">✅ Respuesta real del flujo n8n:</div>
                     <pre className="text-blue-700 whitespace-pre-wrap break-words overflow-auto max-h-32 text-xs">
                       {result.n8nResponse}
                     </pre>
                   </div>
-                )}
+                ) : result.status === 'no_response' ? (
+                  <div className="mt-2 bg-orange-50 rounded p-2 text-xs border border-orange-200">
+                    <div className="font-semibold text-orange-600 mb-1">⚠️ No se recibió respuesta del flujo n8n</div>
+                    <p className="text-orange-700">El flujo n8n no devolvió respuesta después de esperar {5} segundos</p>
+                  </div>
+                ) : null}
                 {typeof result.waitTime === 'number' && (
                   <div className="mt-1 text-gray-500 text-xs">
-                    ⏱️ Tiempo de espera: {result.waitTime} ms
+                    ⏱️ Tiempo de envío al webhook: {result.waitTime} ms
                   </div>
                 )}
               </div>

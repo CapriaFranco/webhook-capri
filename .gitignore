@@ -40,3 +40,8 @@ VERCEL_SETUP.md
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pruebas
+clear.json
+payload1.json
+payload2.json
