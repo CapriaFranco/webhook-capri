@@ -202,8 +202,8 @@ export default function StressTestPanel() {
                   <div className="metric-value metric-value-sm">{summary.error}</div>
                 </div>
                 <div className="metric-card">
-                  <div className="metric-label">Total</div>
-                  <div className="metric-value metric-value-sm">{summary.total}</div>
+                  <div className="metric-label">No Response</div>
+                  <div className="metric-value metric-value-sm">{metrics.noResponse ?? 0}</div>
                 </div>
               </div>
             </div>
