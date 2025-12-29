@@ -25,12 +25,9 @@ export default function Home() {
           </div>
 
           {/* Bottom row: Results + Stress Test */}
-          <div className="grid-row grid-haside" style={{ position: "relative" }}>
+          <div className="grid-row grid-haside">
             <section>
               <ResultsPanel />
-              <div style={{ position: "absolute", top: "31%", left: "31%", zIndex: 1, margin: "auto", color: "var(--text-secondary)", fontSize: "3.2101rem" }}>
-                :)
-              </div>
             </section>
             <aside>
               <StressTestPanel />

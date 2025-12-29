@@ -149,6 +149,8 @@ export default function ResultsPanel() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              // flex: 1, // Added flex: 1 to make empty state fill the wrapper
+              height: "100%",
               padding: "var(--space-3xl)",
               color: "var(--text-secondary)",
               fontSize: "var(--text-sm)",
