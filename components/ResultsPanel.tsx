@@ -131,18 +131,21 @@ export default function ResultsPanel() {
 
   if (results.length === 0) return null
 
-  return (
-    <div className="panel neon-border-neutral" style={{ display: "flex", flexDirection: "column", height: "100%", zIndex: 2 }}>
-      <div className="panel-header">
-        <h2 className="panel-title">Results Details</h2>
-        <p className="body-text" style={{ marginTop: "var(--space-xs)" }}>
-          {results.filter(r => r.status !== 'pending').length} / {results.length} respondieron
-        </p>
-      </div>
+  const respondedCount = results.filter(r => r.status !== 'pending').length
+  const totalCount = results.length
 
-      <div className="data-table-container table-scroll" style={{ flex: 1, overflow: "auto", minHeight: 0 }}>
-        <table className="data-table">
-          <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
+  return (
+    <div className="results-panel">
+      <header className="results-panel-header">
+        <h2 className="results-panel-title">Results Details</h2>
+        <p className="results-panel-subtitle">
+          {respondedCount} / {totalCount} respondieron
+        </p>
+      </header>
+
+      <div className="results-table-wrapper">
+        <table className="results-table">
+          <thead className="results-table-head">
             <tr>
               <th>ID</th>
               <th>User</th>
@@ -154,68 +157,81 @@ export default function ResultsPanel() {
               <th>Output</th>
             </tr>
           </thead>
-          <tbody>
-            {results.map((r, i) => (
-              <tr key={i}>
-                <td className="mono-text" style={{ width: "70px" }}>{i + 1}</td>
-                <td style={{ width: "120px" }}>{r.userName}</td>
-                <td style={{ width: "100px" }}>
-                  <div
-                    className={`status-indicator ${
-                      r.status === "success"
-                        ? "status-success"
-                        : r.status === "error"
-                          ? "status-danger"
-                          : "status-warning"
-                    }`}
-                  >
-                    <span className="status-dot"></span>
-                    <span>{r.status}</span>
-                  </div>
-                </td>
-                <td className="mono-text" style={{ width: "100px" }}>{r.timestamp ? new Date(r.timestamp).toLocaleTimeString() : "-"}</td>
-                <td className="mono-text" style={{ width: "140px" }}>{r.phone}</td>
-                <td className="mono-text" style={{ width: "90px" }}>{typeof r.responseTime === "number" ? `${r.responseTime}ms` : "-"}</td>
-                <td style={{ width: "50px" }}>
-                  <span
-                    onMouseEnter={(e) => handleTooltip(e, r.message)}
-                    onMouseLeave={handleTooltipHide}
-                    style={{ cursor: "pointer", fontSize: "1.3em" }}
-                  >
-                    ⋮
-                  </span>
-                </td>
-                <td style={{ flex: 1, minWidth: "200px", maxWidth: "400px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: "var(--space-md)" }}>
-                  <span
-                    onMouseEnter={(e) => handleTooltip(e, r.n8nResponse || "No response")}
-                    onMouseLeave={handleTooltipHide}
-                    style={{ cursor: "pointer" }}
-                  >
-                    {r.n8nResponse ? r.n8nResponse.substring(0, 60) + (r.n8nResponse.length > 60 ? "..." : "") : "-"}
-                  </span>
-                </td>
-              </tr>
-            ))}
+          <tbody className="results-table-body">
+            {results.map((result, index) => {
+              const statusClass = 
+                result.status === "success" ? "status-success" :
+                result.status === "error" ? "status-danger" :
+                "status-warning"
+
+              const formattedTime = result.timestamp 
+                ? new Date(result.timestamp).toLocaleTimeString() 
+                : "-"
+
+              const formattedDuration = typeof result.responseTime === "number" 
+                ? `${result.responseTime}ms` 
+                : "-"
+
+              const outputText = result.n8nResponse 
+                ? (result.n8nResponse.length > 60 
+                    ? result.n8nResponse.substring(0, 60) + "..." 
+                    : result.n8nResponse)
+                : "-"
+
+              return (
+                <tr key={index} className="results-table-row">
+                  <td className="results-table-cell results-table-cell-id">
+                    {index + 1}
+                  </td>
+                  <td className="results-table-cell results-table-cell-user">
+                    {result.userName}
+                  </td>
+                  <td className="results-table-cell results-table-cell-status">
+                    <div className={`status-indicator ${statusClass}`}>
+                      <span className="status-dot"></span>
+                      <span>{result.status}</span>
+                    </div>
+                  </td>
+                  <td className="results-table-cell results-table-cell-time">
+                    {formattedTime}
+                  </td>
+                  <td className="results-table-cell results-table-cell-phone">
+                    {result.phone}
+                  </td>
+                  <td className="results-table-cell results-table-cell-duration">
+                    {formattedDuration}
+                  </td>
+                  <td className="results-table-cell results-table-cell-input">
+                    <span
+                      className="results-table-trigger results-table-trigger-icon"
+                      onMouseEnter={(e) => handleTooltip(e, result.message)}
+                      onMouseLeave={handleTooltipHide}
+                    >
+                      ⋮
+                    </span>
+                  </td>
+                  <td className="results-table-cell results-table-cell-output">
+                    <span
+                      className="results-table-trigger results-table-trigger-text"
+                      onMouseEnter={(e) => handleTooltip(e, result.n8nResponse || "No response")}
+                      onMouseLeave={handleTooltipHide}
+                    >
+                      {outputText}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
 
       {tooltip.show && (
         <div
+          className="results-tooltip"
           style={{
-            position: "fixed",
             left: `${tooltip.x}px`,
             top: `${tooltip.y}px`,
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-strong)",
-            borderRadius: "var(--radius-md)",
-            padding: "var(--space-md)",
-            maxWidth: "400px",
-            wordWrap: "break-word",
-            zIndex: 1000,
-            fontSize: "var(--text-xs)",
-            color: "var(--text-primary)",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
           }}
         >
           {tooltip.content}

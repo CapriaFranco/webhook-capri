@@ -229,7 +229,8 @@ body {
 .app-grid {
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto 1fr; /* Primera fila auto, segunda fila flexible */
+  grid-auto-rows: auto; /* Las filas adicionales se ajustan al contenido */
   gap: var(--space-lg);
   min-height: calc(100vh - 320px);
 }
@@ -238,6 +239,13 @@ body {
   display: grid;
   grid-template-columns: 1fr 380px;
   gap: var(--space-lg);
+}
+
+.grid-row.grid-haside {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%; /* Asegurar que no se pase del espacio disponible en el grid */
+  overflow: hidden; /* Prevenir overflow del contenedor grid */
 }
 
 /* grid-hsection: altura controlada por section, aside se adapta */
@@ -263,6 +271,8 @@ body {
 .grid-haside > section {
   height: 100%;
   min-height: 0;
+  max-height: 100%; /* Asegurar que no se pase del contenedor */
+  overflow: hidden; /* Prevenir overflow del section */
 }
 
 .grid-haside > aside {
@@ -276,12 +286,17 @@ body {
 }
 
 /* En grid-haside, el panel del section debe tener constraint correcto */
+/* Panel dentro de grid-haside: ocupa el espacio restante sin forzar height */
 .grid-haside > section > .panel {
   padding: var(--space-lg);
-  overflow: auto;
-  height: 100%;
+  overflow: hidden; /* El panel no debe hacer scroll, solo el contenido interno */
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  min-height: 0;
+  max-height: 100%; /* Asegurar que no se pase de la altura del section */
+  height: 100%; /* Ocupar toda la altura disponible del section */
+  width: 100%; /* Asegurar que ocupe todo el ancho */
 }
 
 @media (max-width: 1200px) {
@@ -354,6 +369,8 @@ body {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   padding: var(--space-xl);
+  box-sizing: border-box;
+  z-index: 2;
 }
 
 .panel-header {
@@ -361,6 +378,7 @@ body {
   padding-bottom: var(--space-lg);
   border-bottom: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  margin: 0 0 var(--space-lg) 0;
 }
 
 .panel-title {
@@ -368,6 +386,24 @@ body {
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
+}
+
+/* Aseguramos que los paneles dentro de grid-haside mantengan el padding reducido */
+.grid-haside > section > .panel {
+  padding: var(--space-lg) !important;
+}
+
+/* Results panel dentro de grid-haside debe seguir las mismas reglas */
+.grid-haside > section > .results-panel {
+  padding: var(--space-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 0;
+  max-height: 100%;
+  height: 100%;
+  width: 100%;
 }
 
 /* Neon Border Variants - Professional, no glow */
@@ -544,7 +580,6 @@ textarea.input {
 .form-group:last-child {
   margin-bottom: 0;
 }
-
 /* ============================================
    STATUS INDICATORS
    ============================================ */
@@ -580,7 +615,159 @@ textarea.input {
 }
 
 /* ============================================
-   DATA TABLE
+   RESULTS PANEL - Componente específico
+   ============================================ */
+.results-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.results-panel-header {
+  flex-shrink: 0;
+  margin-bottom: var(--space-lg);
+  padding-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.results-panel-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--space-xs) 0;
+}
+
+.results-panel-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.results-table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.results-table-head {
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-default);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.results-table-head th {
+  padding: var(--space-md);
+  text-align: left;
+  font-weight: 600;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.results-table-row {
+  transition: background 100ms ease;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.results-table-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.results-table-cell {
+  padding: var(--space-md);
+  color: var(--text-primary);
+}
+
+.results-table-cell-id {
+  width: 70px;
+  font-family: var(--font-mono);
+}
+
+.results-table-cell-user {
+  width: 120px;
+}
+
+.results-table-cell-status {
+  width: 100px;
+}
+
+.results-table-cell-time {
+  width: 100px;
+  font-family: var(--font-mono);
+}
+
+.results-table-cell-phone {
+  width: 140px;
+  font-family: var(--font-mono);
+}
+
+.results-table-cell-duration {
+  width: 90px;
+  font-family: var(--font-mono);
+}
+
+.results-table-cell-input {
+  width: 50px;
+}
+
+.results-table-cell-output {
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: var(--space-md);
+}
+
+.results-table-trigger {
+  cursor: pointer;
+}
+
+.results-table-trigger-icon {
+  font-size: 1.3em;
+}
+
+.results-table-trigger-text {
+  cursor: pointer;
+}
+
+.results-tooltip {
+  position: fixed;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  max-width: 400px;
+  word-wrap: break-word;
+  z-index: 1000;
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================
+   DATA TABLE - Clases genéricas (para otros componentes)
    ============================================ */
 .data-table-container {
   border: 1px solid var(--border-default);
@@ -590,6 +777,12 @@ textarea.input {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  max-height: 100%;
+}
+
+.data-table-container.table-scroll {
+  overflow: auto;
+  max-height: 100%;
 }
 
 .data-table {
@@ -597,7 +790,6 @@ textarea.input {
   border-collapse: collapse;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  flex: 2;
 }
 
 .data-table thead {
@@ -632,10 +824,18 @@ textarea.input {
 
 .table-scroll {
   overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: auto;
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  max-height: 100%;
+}
+
+.table-scroll:not(.data-table-container) {
+  overflow-y: auto;
+  overflow-x: auto;
+  max-height: 100%;
 }
 
 /* ============================================
@@ -937,3 +1137,4 @@ textarea.input {
   white-space: nowrap;
   border-width: 0;
 }
+
