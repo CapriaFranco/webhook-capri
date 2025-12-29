@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { subscribeToMessages, type Message } from "@/lib/firebase-client"
+import type { Unsubscribe } from "firebase/database"
 
 type TestResult = {
   phone: string
@@ -10,6 +12,7 @@ type TestResult = {
   n8nResponse?: string
   responseTime?: number
   timestamp?: string
+  sentAt?: number
 }
 
 export default function ResultsPanel() {
@@ -20,22 +23,95 @@ export default function ResultsPanel() {
     x: 0,
     y: 0,
   })
+  const resultsMapRef = useRef<Map<string, TestResult>>(new Map())
+  const phonesTrackedRef = useRef<Set<string>>(new Set())
+  const unsubscribeRef = useRef<Unsubscribe | null>(null)
+
+  const startListeningToFirebase = useCallback(() => {
+    // Si ya hay un listener, desuscribirse
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+    }
+
+    // Escuchar TODOS los mensajes y filtrar por phones tracked
+    try {
+      const unsubscribe = subscribeToMessages((fbMessages: Message[]) => {
+        let updated = false;
+
+        for (const msg of fbMessages) {
+          // Solo procesar si es una respuesta inbound para un phone que enviamos
+          if (msg.direction === 'inbound' && phonesTrackedRef.current.has(msg.phone)) {
+            const result = resultsMapRef.current.get(msg.phone);
+            if (result) {
+              // Actualizar la respuesta
+              result.n8nResponse = msg.message;
+              result.status = msg.message.toLowerCase().includes('error') ? 'error' : 'success';
+              
+              // Calcular responseTime
+              if (result.sentAt) {
+                result.responseTime = msg.timestamp ? new Date(msg.timestamp).getTime() - result.sentAt : undefined;
+              }
+              
+              updated = true;
+            }
+          }
+        }
+
+        // Re-renderizar si hubo cambios
+        if (updated) {
+          setResults(Array.from(resultsMapRef.current.values()));
+        }
+      });
+      
+      unsubscribeRef.current = unsubscribe;
+    } catch (err) {
+      console.error('Error escuchando Firebase:', err);
+    }
+  }, [])
 
   useEffect(() => {
     const handler = (e: Event) => {
       const custom = e as CustomEvent;
       const detail = custom?.detail;
       if (!detail) return;
-      setResults(detail.results || []);
+      const newResults = detail.results || [];
+      
+      // Guardar results en un mapa por phone para actualizaciones rápidas
+      const newMap = new Map<string, TestResult>();
+      for (const result of newResults) {
+        newMap.set(result.phone, result);
+      }
+      resultsMapRef.current = newMap;
+      
+      // Guardar phones tracked para filtrar en Firebase
+      const phones = new Set(newResults.map((r: TestResult) => r.phone))
+      phonesTrackedRef.current = phones as Set<string>
+      
+      setResults(newResults);
+      
+      // Escuchar cambios en Firebase para los phones enviados
+      startListeningToFirebase();
     };
+    
     const clearHandler = () => {
       setResults([]);
+      resultsMapRef.current.clear();
+      phonesTrackedRef.current.clear();
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
     };
+    
     window.addEventListener('stress-test-results', handler as EventListener);
     window.addEventListener('clear-stress-results', clearHandler as EventListener);
+    
     return () => {
       window.removeEventListener('stress-test-results', handler as EventListener);
       window.removeEventListener('clear-stress-results', clearHandler as EventListener);
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
     };
   }, []);
 
@@ -56,17 +132,17 @@ export default function ResultsPanel() {
   if (results.length === 0) return null
 
   return (
-    <div className="panel neon-border-neutral">
+    <div className="panel neon-border-neutral" style={{ display: "flex", flexDirection: "column", height: "100%", zIndex: 2 }}>
       <div className="panel-header">
         <h2 className="panel-title">Results Details</h2>
         <p className="body-text" style={{ marginTop: "var(--space-xs)" }}>
-          {results.length} results
+          {results.filter(r => r.status !== 'pending').length} / {results.length} respondieron
         </p>
       </div>
 
-      <div className="data-table-container table-scroll">
+      <div className="data-table-container table-scroll" style={{ flex: 1, overflow: "auto", minHeight: 0 }}>
         <table className="data-table">
-          <thead>
+          <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
             <tr>
               <th>ID</th>
               <th>User</th>
@@ -105,7 +181,6 @@ export default function ResultsPanel() {
                     onMouseEnter={(e) => handleTooltip(e, r.message)}
                     onMouseLeave={handleTooltipHide}
                     style={{ cursor: "pointer", fontSize: "1.3em" }}
-                    title="Ver mensaje enviado"
                   >
                     ⋮
                   </span>
@@ -115,7 +190,6 @@ export default function ResultsPanel() {
                     onMouseEnter={(e) => handleTooltip(e, r.n8nResponse || "No response")}
                     onMouseLeave={handleTooltipHide}
                     style={{ cursor: "pointer" }}
-                    title="View full response"
                   >
                     {r.n8nResponse ? r.n8nResponse.substring(0, 60) + (r.n8nResponse.length > 60 ? "..." : "") : "-"}
                   </span>

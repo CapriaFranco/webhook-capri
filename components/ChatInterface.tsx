@@ -103,8 +103,6 @@ export default function ChatInterface() {
     }
   }, [config?.phone])
 
-  const canSend = Boolean(config?.phone)
-
   const sendToN8n = async (text: string) => {
     if (!config?.phone) return
 

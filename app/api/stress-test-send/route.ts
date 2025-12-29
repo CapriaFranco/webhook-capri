@@ -18,6 +18,7 @@ type TestResult = {
   response: string;
   n8nResponse?: string;
   timestamp: string;
+  sentAt?: number; // Timestamp en ms cuando se envió
   waitTime: number;
   responseTime?: number; // Tiempo que tardó n8n en responder (desde que se envió)
 };
@@ -111,12 +112,13 @@ const sampleMessages = [
 
 /**
  * POST /api/stress-test-send
- * Envía mensajes reales al webhook de n8n y devuelve resultados detallados.
+ * Envía mensajes reales al webhook de n8n y retorna inmediatamente.
+ * El frontend escucha Firebase en tiempo real para actualizaciones de respuestas.
  */
 export async function POST(req: NextRequest) {
   try {
     const startTime = Date.now();
-    const { numUsers = 100, messagesPerUser = 1, webhookUrl, waitForResponses = true, waitMs = 300000 } = await req.json(); // 300s = 5 min
+    const { numUsers = 100, messagesPerUser = 1, intervalMs = 0, webhookUrl } = await req.json();
 
     if (!webhookUrl) {
       return NextResponse.json({ error: 'webhookUrl es requerido' }, { status: 400 });
@@ -134,7 +136,6 @@ export async function POST(req: NextRequest) {
 
     const results: TestResult[] = [];
     let totalSent = 0;
-    let successCount = 0;
     let errorCount = 0;
 
     // Opcional: guardar en Firebase (para trazabilidad)
@@ -147,12 +148,14 @@ export async function POST(req: NextRequest) {
     // Mapa de phone -> datos del mensaje outbound (para calcular responseTime)
     const phoneOutboundData: Record<string, { sentAt: number }> = {};
 
-    for (let u = 0; u < numUsers; u++) {
-      const phone = generatePhoneNumber();
-      const userName = generateUserName(u + 1);
-      phonesSent.add(phone); // Track para later matching de respuestas
+    // Bucle reorganizado: primero todos los usuarios envían el mensaje 1, luego esperan intervalMs,
+    // luego todos envían el mensaje 2, etc.
+    for (let m = 0; m < messagesPerUser; m++) {
+      for (let u = 0; u < numUsers; u++) {
+        const phone = generatePhoneNumber();
+        const userName = generateUserName(u + 1);
+        phonesSent.add(phone); // Track para later matching de respuestas
 
-      for (let m = 0; m < messagesPerUser; m++) {
         const message = sampleMessages[m % sampleMessages.length];
         const timestamp = new Date().toISOString();
         const sentAt = Date.now(); // Timestamp en ms del envío
@@ -193,6 +196,7 @@ export async function POST(req: NextRequest) {
               status: 'error',
               response: `HTTP ${resp.status}: ${resp.statusText}`,
               timestamp,
+              sentAt, // Incluir timestamp de envío
               waitTime: Date.now() - startReq,
             });
             console.log(`[stress-test] Error enviando a ${webhookUrl}: HTTP ${resp.status}`);
@@ -205,6 +209,7 @@ export async function POST(req: NextRequest) {
               status: 'pending',
               response: '',
               timestamp,
+              sentAt, // Incluir timestamp de envío para calcular responseTime después
               waitTime: Date.now() - startReq,
             });
           }
@@ -217,11 +222,17 @@ export async function POST(req: NextRequest) {
             status: 'error',
             response: e instanceof Error ? e.message : String(e),
             timestamp,
+            sentAt, // Incluir timestamp de envío
             waitTime: Date.now() - startReq,
           });
           console.error(`[stress-test] Error de red/conexión al enviar a ${webhookUrl}: ${e instanceof Error ? e.message : String(e)}`);
         }
         totalSent++;
+      }
+      
+      // Si hay intervalo y no es el último lote, esperar
+      if (intervalMs > 0 && m < messagesPerUser - 1) {
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
       }
     }
 
@@ -230,100 +241,25 @@ export async function POST(req: NextRequest) {
       await db.ref().update(updates);
     }
 
-    // Si solicitamos esperar respuestas, aguardar un tiempo y luego buscar respuestas en Firebase
-    if (waitForResponses && waitMs > 0) {
-      console.log(`[stress-test] Iniciando espera de ${waitMs}ms por respuestas de n8n. Teléfonos enviados: ${phonesSent.size}`);
-      await new Promise(resolve => setTimeout(resolve, waitMs));
-      
-      // Capturar mensajes inbound que llegaron en este tiempo (respuestas del flujo de n8n)
-      const snapshot = await db.ref('messages').get();
-      if (snapshot.exists()) {
-        const allMessages = snapshot.val() as Record<string, MessageUpdate>;
-        const inboundResponses: Record<string, MessageUpdate> = {};
-        const outboundMessages: Record<string, MessageUpdate> = {}; // Para obtener sentAt
-        
-        for (const [, msg] of Object.entries(allMessages)) {
-          if (msg.direction === 'inbound' && phonesSent.has(msg.phone)) {
-            inboundResponses[msg.phone] = msg;
-          } else if (msg.direction === 'outbound' && phonesSent.has(msg.phone)) {
-            outboundMessages[msg.phone] = msg;
-          }
-        }
-        
-        // Actualizar status y respuestas basado en lo que realmente devolvió n8n
-        successCount = 0; // Reiniciar contador
-        for (const result of results) {
-          if (result.status === 'error') {
-            // Ya era error en el envío mismo, no cambiar
-            continue;
-          }
-          
-          if (inboundResponses[result.phone]) {
-            result.n8nResponse = inboundResponses[result.phone].message;
-            // Calcular tiempo de respuesta: diferencia entre receivedAt (cuando llegó) y sentAt (cuando se envió)
-            const outboundMsg = outboundMessages[result.phone];
-            const inboundMsg = inboundResponses[result.phone];
-            if (outboundMsg?.sentAt && inboundMsg?.receivedAt) {
-              result.responseTime = inboundMsg.receivedAt - outboundMsg.sentAt;
-            }
-            // Determinar si fue éxito o error basado en el contenido de la respuesta
-            const responseMsg = inboundResponses[result.phone].message.toLowerCase();
-            if (responseMsg.includes('error') || responseMsg.includes('fail')) {
-              result.status = 'error';
-            } else {
-              result.status = 'success';
-              successCount++;
-            }
-            console.log(`[stress-test] Actualizado ${result.phone}: ${result.status} - ${result.responseTime}ms - ${inboundResponses[result.phone].message}`);
-          } else {
-            // No llegó respuesta del flujo después de esperar
-            result.status = 'no_response';
-            console.log(`[stress-test] ⚠️ Sin respuesta para ${result.phone} después de ${waitMs}ms. Respuestas inbound encontradas: ${Object.keys(inboundResponses).length}, Total enviados: ${phonesSent.size}`);
-          }
-        }
-        
-        errorCount = results.filter(r => r.status === 'error').length;
-      }
-    }
-
-    // Calcular métricas de timing (acumulativas)
-    const metrics = {
-      lessThan1s: 0,
-      lessThan5s: 0,
-      lessThan30s: 0,
-      noResponse: 0,
-      errors: 0,
-    };
-
-    for (const result of results) {
-      if (result.status === 'error') {
-        metrics.errors++;
-      } else if (result.status === 'no_response') {
-        metrics.noResponse++;
-      } else if (result.status === 'success' && result.responseTime !== undefined) {
-        // Acumulativo: contar en todos los rangos que apliquen
-        if (result.responseTime < 1000) {
-          metrics.lessThan1s++;
-          metrics.lessThan5s++;
-          metrics.lessThan30s++;
-        } else if (result.responseTime < 5000) {
-          metrics.lessThan5s++;
-          metrics.lessThan30s++;
-        } else if (result.responseTime < 30000) {
-          metrics.lessThan30s++;
-        }
-      }
-    }
+    // Retornar inmediatamente sin esperar respuestas
+    // El frontend escucha Firebase en tiempo real para actualizaciones
+    console.log(`[stress-test] Enviados ${totalSent} mensajes. El frontend escuchará en tiempo real.`);
 
     return NextResponse.json({
       success: true,
       totalSent,
-      successCount,
+      successCount: 0, // Aún no hay respuestas
       errorCount,
       duration: Date.now() - startTime,
-      metrics,
-      results,
-      note: waitForResponses ? `Esperó ${waitMs}ms por respuestas desde n8n` : 'Sin espera por respuestas',
+      metrics: {
+        lessThan1s: 0,
+        lessThan5s: 0,
+        lessThan30s: 0,
+        noResponse: totalSent - errorCount, // Inicialmente todos son "pendientes"
+        errors: errorCount,
+      },
+      results, // Resultados con status 'pending' o 'error'
+      note: 'Mensaje enviados. Las respuestas se actualizarán en tiempo real en el frontend.',
     });
   } catch (err) {
     console.error('[Stress Test Send] Error', err);

@@ -228,20 +228,74 @@ body {
 
 .app-grid {
   display: grid;
-  grid-template-columns: 1fr 420px;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
   gap: var(--space-lg);
-  align-items: start;
+  min-height: calc(100vh - 320px);
+}
+
+.grid-row {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: var(--space-lg);
+}
+
+/* grid-hsection: altura controlada por section, aside se adapta */
+.grid-hsection {
+  height: auto;
+}
+
+.grid-hsection > section {
+  height: auto;
+}
+
+.grid-hsection > aside {
+  height: 100%;
+  min-height: 0;
+}
+
+/* grid-haside: altura controlada por aside, section se adapta */
+.grid-haside {
+  height: 100%;
+  min-height: 0;
+}
+
+.grid-haside > section {
+  height: 100%;
+  min-height: 0;
+}
+
+.grid-haside > aside {
+  height: auto;
+}
+
+.grid-row > section,
+.grid-row > aside {
+  display: flex;
+  flex-direction: column;
+}
+
+/* En grid-haside, el panel del section debe tener constraint correcto */
+.grid-haside > section > .panel {
+  padding: var(--space-lg);
+  overflow: auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 @media (max-width: 1200px) {
-  .app-grid {
-    grid-template-columns: 1fr 380px;
-    gap: var(--space-md);
+  .grid-row {
+    grid-template-columns: 1fr 350px;
   }
 }
 
 @media (max-width: 968px) {
   .app-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .grid-row {
     grid-template-columns: 1fr;
   }
 
@@ -306,6 +360,7 @@ body {
   margin-bottom: var(--space-lg);
   padding-bottom: var(--space-lg);
   border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .panel-title {
@@ -531,6 +586,10 @@ textarea.input {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
   overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .data-table {
@@ -538,6 +597,7 @@ textarea.input {
   border-collapse: collapse;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+  flex: 2;
 }
 
 .data-table thead {
@@ -571,8 +631,11 @@ textarea.input {
 }
 
 .table-scroll {
-  max-height: 616px;
   overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ============================================

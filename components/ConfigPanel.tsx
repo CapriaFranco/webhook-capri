@@ -48,12 +48,12 @@ export default function ConfigPanel() {
   }
 
   return (
-    <div className="panel neon-border-neutral">
+    <div className="panel neon-border-neutral" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
       <div className="panel-header">
         <h2 className="panel-title">Configuration</h2>
       </div>
 
-      <div className="space-y-lg">
+      <div className="space-y-lg" style={{ flex: 1 }}>
         <div className="form-group">
           <label className="form-label">Webhook URL</label>
           <input
@@ -86,11 +86,11 @@ export default function ConfigPanel() {
             className="input"
           />
         </div>
-
-        <button onClick={save} className="btn btn-secondary" style={{ width: "100%" }}>
-          {saved ? "✓ Saved" : "Save"}
-        </button>
       </div>
+
+      <button onClick={save} className="btn btn-secondary" style={{ width: "100%", marginTop: "auto" }}>
+        {saved ? "✓ Saved" : "Save"}
+      </button>
     </div>
   )
 }
